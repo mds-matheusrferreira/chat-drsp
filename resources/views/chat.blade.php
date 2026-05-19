@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat DRSP</title>
     <style>
+        
         :root {
             color-scheme: light;
             --bg: #eef3fb;
@@ -174,7 +175,7 @@
         .window-bar {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
             min-height: 48px;
             padding: 14px 18px;
             border-bottom: 1px solid rgba(148, 163, 184, 0.18);
@@ -186,10 +187,6 @@
             font-size: 13px;
             font-weight: 800;
             letter-spacing: -0.01em;
-        }
-
-        .window-spacer {
-            width: 56px;
         }
 
         .card-body {
@@ -489,7 +486,7 @@
 
             <div class="status">
                 <span class="dot" aria-hidden="true"></span>
-                Ollama local
+                Ollama + documentos internos
             </div>
         </header>
 
@@ -497,7 +494,6 @@
             <div class="card">
                 <div class="window-bar" aria-hidden="true">
                     <div class="window-title">chat-drsp.local</div>
-                    <div class="window-spacer"></div>
                 </div>
 
                 <div class="card-body">
@@ -509,7 +505,7 @@
                         <span class="limit">máx. 4000 caracteres</span>
                     </div>
 
-                    <form method="POST" action="{{ route('chat.ask') }}">
+                    <form id="chat-form" method="POST" action="{{ route('chat.ask') }}" data-stream-url="{{ route('chat.stream') }}">
                         @csrf
                         <div>
                             <label for="message">Mensagem</label>
@@ -517,6 +513,7 @@
                             @error('message')
                                 <div class="alert error">{{ $message }}</div>
                             @enderror
+                            <div id="stream-error" class="alert error" hidden></div>
                         </div>
 
                         <div class="quick" aria-label="Exemplos rápidos">
@@ -527,9 +524,14 @@
 
                         <div class="actions">
                             <p class="note">A resposta pode levar alguns segundos.</p>
-                            <button type="submit" class="submit">Enviar</button>
+                            <button id="submit-button" type="submit" class="submit">Enviar</button>
                         </div>
                     </form>
+
+                    <article id="stream-answer" class="alert answer" hidden>
+                        <div class="answer-title">Resposta</div>
+                        <div id="answer-output"></div>
+                    </article>
 
                     @if (session('answer'))
                         <article class="alert answer">
@@ -545,6 +547,12 @@
             </div>
 
             <aside class="side">
+                <div class="panel">
+                    <h2>Base interna</h2>
+                    <p>Envie documentos do DRSP/SUAS para o chat consultar antes de responder.</p>
+                    <p style="margin-top: 12px;"><a href="{{ route('documents.index') }}" style="color: var(--primary-dark); font-weight: 850; text-decoration: none;">Gerenciar documentos</a></p>
+                </div>
+
                 <div class="panel">
                     <h2>Dicas</h2>
                     <ul>
@@ -563,13 +571,75 @@
     </main>
 
     <script>
+        const form = document.getElementById('chat-form');
+        const textarea = document.getElementById('message');
+        const submitButton = document.getElementById('submit-button');
+        const streamAnswer = document.getElementById('stream-answer');
+        const answerOutput = document.getElementById('answer-output');
+        const streamError = document.getElementById('stream-error');
+        const defaultButtonText = submitButton.textContent;
+
         document.querySelectorAll('[data-prompt]').forEach((button) => {
             button.addEventListener('click', () => {
-                const textarea = document.getElementById('message');
-
                 textarea.value = button.dataset.prompt;
                 textarea.focus();
             });
+        });
+
+        form.addEventListener('submit', async (event) => {
+            if (!window.ReadableStream) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (!textarea.value.trim()) {
+                streamError.textContent = 'Digite uma mensagem para enviar.';
+                streamError.hidden = false;
+                return;
+            }
+
+            streamError.hidden = true;
+            streamError.textContent = '';
+            streamAnswer.hidden = false;
+            answerOutput.textContent = '';
+            submitButton.disabled = true;
+            submitButton.textContent = 'Gerando...';
+
+            try {
+                const response = await fetch(form.dataset.streamUrl, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'Accept': 'text/plain',
+                    },
+                });
+
+                if (!response.ok || !response.body) {
+                    throw new Error('Não foi possível iniciar a resposta em tempo real.');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { value, done } = await reader.read();
+
+                    if (done) {
+                        break;
+                    }
+
+                    answerOutput.textContent += decoder.decode(value, { stream: true });
+                    streamAnswer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            } catch (error) {
+                streamAnswer.hidden = true;
+                streamError.textContent = error.message || 'Não foi possível conectar ao Ollama. Inicie o Ollama e tente novamente.';
+                streamError.hidden = false;
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = defaultButtonText;
+            }
         });
     </script>
 </body>
