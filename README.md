@@ -436,8 +436,10 @@ Testes adicionados:
 - `tests/Feature/KnowledgeDocumentTest.php`
   - valida criação de documento com status `indexing`;
   - garante disparo do job `IndexKnowledgeDocument`;
+  - testa validações HTTP de upload: arquivo obrigatório, extensão inválida, tamanho acima do limite e título longo;
   - testa renovação de documento com mesmo nome e formato;
   - testa exclusão selecionada com senha correta;
+  - testa validações HTTP da exclusão: seleção vazia, ID inexistente e senha ausente;
   - impede exclusão selecionada com senha incorreta.
 - `tests/Feature/KnowledgeDocumentDatabaseTest.php`
   - valida a regra única de banco para `original_name + extension`.

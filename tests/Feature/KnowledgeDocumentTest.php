@@ -114,4 +114,119 @@ class KnowledgeDocumentTest extends TestCase
 
         $this->assertDatabaseHas('knowledge_documents', ['id' => $document->id]);
     }
+
+    public function test_document_upload_requires_file(): void
+    {
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.store'), ['title' => 'Sem arquivo'])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors('document');
+    }
+
+    public function test_document_upload_rejects_invalid_extension(): void
+    {
+        Bus::fake();
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.store'), [
+                'title' => 'Arquivo inválido',
+                'document' => UploadedFile::fake()->create('arquivo.exe', 10, 'application/octet-stream'),
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors('document');
+
+        Bus::assertNotDispatched(IndexKnowledgeDocument::class);
+    }
+
+    public function test_document_upload_rejects_oversized_file(): void
+    {
+        config(['knowledge.max_upload_mb' => 1]);
+        Bus::fake();
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.store'), [
+                'title' => 'Arquivo grande',
+                'document' => UploadedFile::fake()->create('certificado.pdf', 2048, 'application/pdf'),
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors('document');
+
+        Bus::assertNotDispatched(IndexKnowledgeDocument::class);
+    }
+
+    public function test_document_upload_rejects_overlong_title(): void
+    {
+        Bus::fake();
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.store'), [
+                'title' => str_repeat('a', 256),
+                'document' => UploadedFile::fake()->create('certificado.pdf', 10, 'application/pdf'),
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors('title');
+
+        Bus::assertNotDispatched(IndexKnowledgeDocument::class);
+    }
+
+    public function test_selected_delete_requires_at_least_one_document(): void
+    {
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldNotReceive('delete');
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.destroy-selected'), [
+                'documents' => [],
+                'password' => 'drsp',
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors('documents');
+    }
+
+    public function test_selected_delete_requires_existing_document_ids(): void
+    {
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldNotReceive('delete');
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.destroy-selected'), [
+                'documents' => [999999],
+                'password' => 'drsp',
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors('documents.0');
+    }
+
+    public function test_selected_delete_requires_password(): void
+    {
+        $document = KnowledgeDocument::create([
+            'title' => 'Certificado',
+            'original_name' => 'certificado.pdf',
+            'stored_path' => 'knowledge/documents/certificado.pdf',
+            'mime_type' => 'application/pdf',
+            'extension' => 'pdf',
+            'size_bytes' => 1000,
+            'status' => 'ready',
+        ]);
+
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldNotReceive('delete');
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.destroy-selected'), [
+                'documents' => [$document->id],
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors('password');
+    }
 }
