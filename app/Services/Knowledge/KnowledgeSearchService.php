@@ -2,6 +2,8 @@
 
 namespace App\Services\Knowledge;
 
+use Illuminate\Support\Str;
+
 
 class KnowledgeSearchService
 {
@@ -11,8 +13,11 @@ class KnowledgeSearchService
 
     public function contextFor(string $query): string
     {
-        $results = $this->search($query);
+        return $this->contextFromResults($this->search($query));
+    }
 
+    public function contextFromResults(array $results): string
+    {
         if ($results === []) {
             return '';
         }
@@ -25,6 +30,28 @@ class KnowledgeSearchService
                 return "[Trecho ".($index + 1)." — {$title}]\n{$content}";
             })
             ->implode("\n\n");
+    }
+
+    public function sourcesFromResults(array $results): array
+    {
+        return collect($results)
+            ->filter(fn (array $result) => trim($result['content'] ?? '') !== '')
+            ->take((int) config('knowledge.search_limit', 8))
+            ->values()
+            ->map(function (array $result, int $index) {
+                $metadata = $result['metadata'] ?? [];
+                $content = trim(preg_replace('/\s+/', ' ', $result['content'] ?? ''));
+
+                return [
+                    'excerpt_number' => $index + 1,
+                    'title' => $result['title'] ?: ($result['original_name'] ?? 'Documento interno'),
+                    'original_name' => $result['original_name'] ?? null,
+                    'extension' => $metadata['extension'] ?? null,
+                    'chunk_index' => isset($metadata['chunk_index']) ? (int) $metadata['chunk_index'] : null,
+                    'excerpt' => Str::limit($content, 360),
+                ];
+            })
+            ->all();
     }
 
     public function search(string $query): array

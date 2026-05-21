@@ -18,6 +18,8 @@ Route::middleware('documents.admin')->group(function () {
     Route::get('/documents', [KnowledgeDocumentController::class, 'index'])->name('documents.index');
     Route::post('/documents', [KnowledgeDocumentController::class, 'store'])->name('documents.store');
     Route::post('/documents/text', [KnowledgeDocumentController::class, 'storeText'])->name('documents.text.store');
+    Route::get('/documents/status', [KnowledgeDocumentController::class, 'status'])->name('documents.status');
+    Route::post('/documents/{document}/reprocess', [KnowledgeDocumentController::class, 'reprocess'])->name('documents.reprocess');
     Route::post('/documents/delete-selected', [KnowledgeDocumentController::class, 'destroySelected'])->name('documents.destroy-selected');
     Route::delete('/documents/{document}', [KnowledgeDocumentController::class, 'destroy'])->name('documents.destroy');
 });

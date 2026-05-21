@@ -210,6 +210,81 @@ class KnowledgeDocumentTest extends TestCase
         Storage::assertMissing('knowledge/documents/certificado.pdf');
     }
 
+    public function test_documents_status_endpoint_returns_document_statuses(): void
+    {
+        $this->withSession(['documents_admin_authenticated' => true]);
+
+        $document = KnowledgeDocument::create([
+            'title' => 'CEBAS',
+            'original_name' => 'cebas.txt',
+            'stored_path' => 'knowledge/documents/cebas.txt',
+            'mime_type' => 'text/plain',
+            'extension' => 'txt',
+            'size_bytes' => 1000,
+            'status' => 'failed',
+            'chunks_count' => 0,
+            'error_message' => 'Falha ao extrair texto.',
+        ]);
+
+        $response = $this->getJson(route('documents.status'));
+
+        $response->assertOk()
+            ->assertJsonPath('documents.0.id', $document->id)
+            ->assertJsonPath('documents.0.title', 'CEBAS')
+            ->assertJsonPath('documents.0.status', 'failed')
+            ->assertJsonPath('documents.0.error_message', 'Falha ao extrair texto.');
+    }
+
+    public function test_reprocess_failed_document_resets_status_and_dispatches_job(): void
+    {
+        Bus::fake();
+        $this->withSession(['documents_admin_authenticated' => true]);
+
+        $document = KnowledgeDocument::create([
+            'title' => 'CEBAS',
+            'original_name' => 'cebas.txt',
+            'stored_path' => 'knowledge/documents/cebas.txt',
+            'mime_type' => 'text/plain',
+            'extension' => 'txt',
+            'size_bytes' => 1000,
+            'status' => 'failed',
+            'chunks_count' => 0,
+            'error_message' => 'Falha ao extrair texto.',
+        ]);
+
+        $response = $this->post(route('documents.reprocess', $document));
+
+        $response->assertRedirect(route('documents.index'));
+        $this->assertDatabaseHas('knowledge_documents', [
+            'id' => $document->id,
+            'status' => 'indexing',
+            'chunks_count' => 0,
+            'error_message' => null,
+        ]);
+        Bus::assertDispatched(IndexKnowledgeDocument::class, fn (IndexKnowledgeDocument $job) => $job->documentId === $document->id);
+    }
+
+    public function test_reprocess_does_not_dispatch_when_document_is_already_indexing(): void
+    {
+        Bus::fake();
+        $this->withSession(['documents_admin_authenticated' => true]);
+
+        $document = KnowledgeDocument::create([
+            'title' => 'CEBAS',
+            'original_name' => 'cebas.txt',
+            'stored_path' => 'knowledge/documents/cebas.txt',
+            'mime_type' => 'text/plain',
+            'extension' => 'txt',
+            'size_bytes' => 1000,
+            'status' => 'indexing',
+            'chunks_count' => 0,
+        ]);
+
+        $response = $this->post(route('documents.reprocess', $document));
+
+        $response->assertRedirect(route('documents.index'));
+        Bus::assertNotDispatched(IndexKnowledgeDocument::class);
+    }
     public function test_document_store_accepts_manual_text_without_file(): void
     {
         $ingestion = Mockery::mock(KnowledgeIngestionService::class);

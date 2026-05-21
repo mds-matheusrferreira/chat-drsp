@@ -58,7 +58,9 @@ class ChatController extends Controller
 
         $ollamaUrl = $this->ollamaUrl();
         $model = $this->ollamaModel();
-        $prompt = $this->prompt($data['message'], $knowledge->contextFor($data['message']));
+        $results = $knowledge->search($data['message']);
+        $prompt = $this->prompt($data['message'], $knowledge->contextFromResults($results));
+        $sources = $knowledge->sourcesFromResults($results);
 
         try {
             $response = Http::timeout(120)->post($ollamaUrl.'/api/generate', [
@@ -75,7 +77,8 @@ class ChatController extends Controller
 
             return back()
                 ->withInput()
-                ->with('answer', $response->json('response', 'Sem resposta retornada pelo modelo.'));
+                ->with('answer', $response->json('response', 'Sem resposta retornada pelo modelo.'))
+                ->with('sources', $sources);
         } catch (\Throwable $e) {
             return back()
                 ->withInput()
@@ -89,7 +92,9 @@ class ChatController extends Controller
             'message' => ['required', 'string', 'max:4000'],
         ]);
 
-        $prompt = $this->prompt($data['message'], $knowledge->contextFor($data['message']));
+        $results = $knowledge->search($data['message']);
+        $prompt = $this->prompt($data['message'], $knowledge->contextFromResults($results));
+        $sources = $knowledge->sourcesFromResults($results);
 
         return response()->stream(function () use ($prompt) {
             while (ob_get_level() > 0) {
@@ -158,6 +163,7 @@ class ChatController extends Controller
             'Content-Type' => 'text/plain; charset=UTF-8',
             'Cache-Control' => 'no-cache, no-transform',
             'X-Accel-Buffering' => 'no',
+            'X-Knowledge-Sources' => base64_encode(json_encode($sources, JSON_UNESCAPED_UNICODE)),
         ]);
     }
 
@@ -177,10 +183,24 @@ class ChatController extends Controller
 Você é um assistente interno do DRSP — Departamento de Rede Socioassistencial Privada do SUAS.
 Responda sempre em português do Brasil.
 Use linguagem clara, objetiva e institucional.
-Use os documentos internos fornecidos como principal referência quando eles forem relevantes.
+Responda somente com base no contexto de documentos internos fornecido quando houver contexto.
 Quando a informação não estiver nos documentos fornecidos, diga que não encontrou informação suficiente na base interna.
-Não invente normas, prazos, números ou procedimentos.
+Não invente normas, prazos, números, procedimentos ou conceitos que não apareçam no contexto.
 Para temas sensíveis, recomende validação com a equipe responsável.
+Não liste fontes no texto da resposta; a aplicação exibirá as fontes recuperadas em bloco separado.
+
+Exemplos de comportamento esperado:
+Usuário: O que é CEBAS?
+Resposta: CEBAS é a Certificação de Entidades Beneficentes de Assistência Social, conforme descrito nos documentos internos recuperados.
+
+Usuário: O que é CNEAS?
+Resposta: CNEAS é tratado nos documentos internos como cadastro relacionado às organizações e ofertas socioassistenciais. Responda apenas com os detalhes presentes no contexto recuperado.
+
+Usuário: O que é a Rede Socioassistencial Privada?
+Resposta: A Rede Socioassistencial Privada deve ser explicada conforme os documentos internos recuperados, em linguagem institucional e objetiva.
+
+Usuário: Qual é o prazo de um procedimento que não aparece no contexto?
+Resposta: Não encontrei informação suficiente na base interna para responder com segurança. Valide com a equipe responsável.
 PROMPT;
 
         if ($knowledgeContext !== '') {

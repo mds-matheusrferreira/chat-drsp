@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\IndexKnowledgeDocument;
 use App\Models\KnowledgeDocument;
 use App\Services\Knowledge\KnowledgeIngestionService;
 use Illuminate\Http\Request;
@@ -13,6 +14,23 @@ class KnowledgeDocumentController extends Controller
         return view('documents.index', [
             'documents' => KnowledgeDocument::latest()->get(),
             'allowedExtensions' => config('knowledge.allowed_extensions'),
+            'maxUploadMb' => config('knowledge.max_upload_mb'),
+        ]);
+    }
+
+    public function status()
+    {
+        return response()->json([
+            'documents' => KnowledgeDocument::latest()->get()->map(fn (KnowledgeDocument $document) => [
+                'id' => $document->id,
+                'title' => $document->title,
+                'original_name' => $document->original_name,
+                'extension' => $document->extension,
+                'status' => $document->status,
+                'chunks_count' => $document->chunks_count,
+                'error_message' => $document->error_message,
+                'updated_at' => $document->updated_at?->toIso8601String(),
+            ]),
         ]);
     }
 
@@ -62,6 +80,23 @@ class KnowledgeDocumentController extends Controller
         return redirect()
             ->route('documents.index')
             ->with('status', 'Texto recebido. A indexação continuará em segundo plano; acompanhe o status na lista.');
+    }
+
+    public function reprocess(KnowledgeDocument $document)
+    {
+        if ($document->status === 'indexing') {
+            return redirect()->route('documents.index')->with('status', 'Documento já está em indexação.');
+        }
+
+        $document->update([
+            'status' => 'indexing',
+            'chunks_count' => 0,
+            'error_message' => null,
+        ]);
+
+        IndexKnowledgeDocument::dispatch($document->id);
+
+        return redirect()->route('documents.index')->with('status', 'Reprocessamento iniciado.');
     }
 
     public function destroySelected(Request $request, KnowledgeIngestionService $ingestion)

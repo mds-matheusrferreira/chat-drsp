@@ -48,4 +48,30 @@ class KnowledgeSearchServiceTest extends TestCase
 
         $this->assertSame('CEBAS', $results[0]['title']);
     }
+
+    public function test_context_and_sources_are_formatted_from_same_results(): void
+    {
+        $service = new KnowledgeSearchService(Mockery::mock(KnowledgePythonProcess::class));
+        $results = [
+            [
+                'content' => "A Certificação\n das Entidades Beneficentes de Assistência Social é concedida às OSCs.",
+                'title' => 'CEBAS',
+                'original_name' => 'cebas.txt',
+                'metadata' => [
+                    'extension' => 'txt',
+                    'chunk_index' => 0,
+                ],
+            ],
+        ];
+
+        $context = $service->contextFromResults($results);
+        $sources = $service->sourcesFromResults($results);
+
+        $this->assertStringContainsString('[Trecho 1 — CEBAS]', $context);
+        $this->assertSame('CEBAS', $sources[0]['title']);
+        $this->assertSame('cebas.txt', $sources[0]['original_name']);
+        $this->assertSame('txt', $sources[0]['extension']);
+        $this->assertSame(0, $sources[0]['chunk_index']);
+        $this->assertStringContainsString('Certificação das Entidades', $sources[0]['excerpt']);
+    }
 }

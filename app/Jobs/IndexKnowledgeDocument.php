@@ -6,6 +6,7 @@ use App\Models\KnowledgeDocument;
 use App\Services\Knowledge\KnowledgeIngestionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Throwable;
 
 class IndexKnowledgeDocument implements ShouldQueue
 {
@@ -24,5 +25,13 @@ class IndexKnowledgeDocument implements ShouldQueue
         }
 
         $ingestion->index($document);
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        KnowledgeDocument::whereKey($this->documentId)->update([
+            'status' => 'failed',
+            'error_message' => $exception->getMessage() ?: 'Falha inesperada ao indexar documento.',
+        ]);
     }
 }
