@@ -5,8 +5,12 @@ import json
 import os
 from pathlib import Path
 
-import chromadb
-from chromadb.utils import embedding_functions
+try:
+    import chromadb
+    from chromadb.utils import embedding_functions
+except Exception:
+    chromadb = None
+    embedding_functions = None
 
 try:
     import pandas as pd
@@ -46,6 +50,9 @@ def chroma_path() -> Path:
 
 
 def collection():
+    if chromadb is None or embedding_functions is None:
+        raise RuntimeError('Dependência chromadb não instalada.')
+
     path = chroma_path()
     path.mkdir(parents=True, exist_ok=True)
 
@@ -130,7 +137,27 @@ def extract_text(path: Path) -> str:
     return ''
 
 
-def chunk_text(text: str, chunk_size: int = 1200, overlap: int = 180) -> list[str]:
+def env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+
+    if value is None or value == '':
+        return default
+
+    return int(value)
+
+
+def validate_chunking(chunk_size: int, overlap: int) -> None:
+    if chunk_size < 200:
+        raise ValueError('chunk-size deve ser pelo menos 200.')
+
+    if overlap < 0:
+        raise ValueError('chunk-overlap não pode ser negativo.')
+
+    if overlap >= chunk_size:
+        raise ValueError('chunk-overlap deve ser menor que chunk-size.')
+
+
+def chunk_text(text: str, chunk_size: int = 700, overlap: int = 120) -> list[str]:
     normalized = '\n'.join(line.strip() for line in text.splitlines())
     normalized = '\n'.join(line for line in normalized.splitlines() if line)
 
@@ -161,7 +188,11 @@ def main():
     parser.add_argument('--path', required=True)
     parser.add_argument('--title', required=True)
     parser.add_argument('--original-name', default='')
+    parser.add_argument('--chunk-size', type=int, default=env_int('KNOWLEDGE_CHUNK_SIZE', 700))
+    parser.add_argument('--chunk-overlap', type=int, default=env_int('KNOWLEDGE_CHUNK_OVERLAP', 120))
     args = parser.parse_args()
+
+    validate_chunking(args.chunk_size, args.chunk_overlap)
 
     file_path = Path(args.path)
 
@@ -169,7 +200,7 @@ def main():
         raise FileNotFoundError(f'Arquivo não encontrado: {file_path}')
 
     text = extract_text(file_path)
-    chunks = chunk_text(text)
+    chunks = chunk_text(text, chunk_size=args.chunk_size, overlap=args.chunk_overlap)
 
     if not chunks:
         raise ValueError('Não foi possível extrair texto útil do documento.')
@@ -194,6 +225,8 @@ def main():
         'status': 'ready',
         'chunks_count': len(chunks),
         'characters_count': len(text),
+        'chunk_size': args.chunk_size,
+        'chunk_overlap': args.chunk_overlap,
     }, ensure_ascii=False))
 
 

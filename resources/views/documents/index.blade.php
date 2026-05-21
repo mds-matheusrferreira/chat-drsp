@@ -98,7 +98,7 @@
             font-weight: 800;
         }
 
-        input[type="text"], input[type="file"], input[type="password"] {
+        input[type="text"], input[type="file"], input[type="password"], textarea {
             width: 100%;
             border: 1px solid var(--border);
             border-radius: 16px;
@@ -106,6 +106,11 @@
             color: var(--text);
             padding: 13px 14px;
             font: inherit;
+        }
+
+        textarea {
+            min-height: 220px;
+            resize: vertical;
         }
 
         .alert {
@@ -212,20 +217,34 @@
 
         <section class="grid">
             <div class="card">
-                <h2>Novo documento</h2>
-                <p class="muted">Formatos aceitos: {{ implode(', ', $allowedExtensions) }}. PDFs escaneados precisam de OCR em uma etapa futura.</p>
+                <h2>Novos documentos</h2>
+                <p class="muted">Formatos aceitos: {{ implode(', ', $allowedExtensions) }}. Selecione um ou mais arquivos; cada documento usará o próprio nome do arquivo como título.</p>
 
                 <form method="POST" action="{{ route('documents.store') }}" enctype="multipart/form-data">
                     @csrf
                     <div>
-                        <label for="title">Título opcional</label>
-                        <input id="title" type="text" name="title" placeholder="Ex.: Fluxo de inscrição de entidades" value="{{ old('title') }}">
+                        <label for="documents">Arquivos</label>
+                        <input id="documents" type="file" name="documents[]" accept="{{ collect($allowedExtensions)->map(fn ($extension) => '.'.$extension)->implode(',') }}" multiple required>
+                    </div>
+                    <button type="submit">Enviar e indexar documentos</button>
+                </form>
+
+                <hr style="width: 100%; border: 0; border-top: 1px solid rgba(148, 163, 184, 0.22); margin: 24px 0;">
+
+                <h2>Inserir texto na base</h2>
+                <p class="muted">Cole um conteúdo textual para incorporar diretamente à base. Se repetir o mesmo título, o texto anterior será substituído.</p>
+
+                <form method="POST" action="{{ route('documents.text.store') }}">
+                    @csrf
+                    <div>
+                        <label for="manual_title">Nome/título da base</label>
+                        <input id="manual_title" type="text" name="manual_title" placeholder="Ex.: Fluxo de atendimento SUAS" value="{{ old('manual_title') }}" required>
                     </div>
                     <div>
-                        <label for="document">Arquivo</label>
-                        <input id="document" type="file" name="document" required>
+                        <label for="manual_text">Insira texto para incorporar base</label>
+                        <textarea id="manual_text" name="manual_text" placeholder="Cole aqui o texto que o chat deverá consultar..." required>{{ old('manual_text') }}</textarea>
                     </div>
-                    <button type="submit">Enviar e indexar</button>
+                    <button type="submit">Salvar texto e indexar</button>
                 </form>
             </div>
 

@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Jobs\IndexKnowledgeDocument;
 use App\Models\KnowledgeDocument;
 use App\Services\Knowledge\KnowledgeIngestionService;
+use App\Services\Knowledge\KnowledgePythonProcess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Tests\TestCase;
@@ -37,6 +39,52 @@ class KnowledgeDocumentTest extends TestCase
         Bus::assertDispatched(IndexKnowledgeDocument::class, fn (IndexKnowledgeDocument $job) => $job->documentId === $document->id);
     }
 
+    public function test_index_passes_chunking_configuration_to_python(): void
+    {
+        config([
+            'knowledge.chunk_size' => 700,
+            'knowledge.chunk_overlap' => 120,
+            'knowledge.tmp_path' => storage_path('framework/testing/knowledge-tmp'),
+        ]);
+
+        Storage::fake('local');
+        Storage::put('knowledge/documents/certificado.pdf', 'conteudo');
+        Process::fake([
+            '*' => Process::result(output: json_encode([
+                'status' => 'ready',
+                'chunks_count' => 4,
+                'characters_count' => 1800,
+                'chunk_size' => 700,
+                'chunk_overlap' => 120,
+            ])),
+        ]);
+
+        $document = KnowledgeDocument::create([
+            'title' => 'Certificado',
+            'original_name' => 'certificado.pdf',
+            'stored_path' => 'knowledge/documents/certificado.pdf',
+            'mime_type' => 'application/pdf',
+            'extension' => 'pdf',
+            'size_bytes' => 1000,
+            'status' => 'indexing',
+        ]);
+
+        app(KnowledgeIngestionService::class)->index($document);
+
+        $expectedTempPath = storage_path('framework/testing/knowledge-tmp');
+        $environment = app(KnowledgePythonProcess::class)->environment();
+
+        $this->assertSame($expectedTempPath, $environment['TMP']);
+        $this->assertSame($expectedTempPath, $environment['TEMP']);
+        $this->assertSame($expectedTempPath, $environment['TMPDIR']);
+
+        $this->assertDatabaseHas('knowledge_documents', [
+            'id' => $document->id,
+            'status' => 'ready',
+            'chunks_count' => 4,
+        ]);
+    }
+
     public function test_upload_with_same_original_name_and_extension_replaces_old_document(): void
     {
         Bus::fake();
@@ -58,6 +106,171 @@ class KnowledgeDocumentTest extends TestCase
         ]);
         $this->assertSame(1, KnowledgeDocument::where('original_name', 'certificado.xlsx')->where('extension', 'xlsx')->count());
         Storage::assertMissing($oldPath);
+    }
+
+    public function test_manual_text_creates_txt_document_and_dispatches_indexing_job(): void
+    {
+        Bus::fake();
+        Storage::fake('local');
+
+        $document = app(KnowledgeIngestionService::class)->ingestText(
+            'Fluxo de atendimento SUAS',
+            'Este texto descreve o fluxo interno de atendimento do SUAS para entidades privadas.'
+        );
+
+        $this->assertDatabaseHas('knowledge_documents', [
+            'id' => $document->id,
+            'title' => 'Fluxo de atendimento SUAS',
+            'original_name' => 'fluxo-de-atendimento-suas.txt',
+            'mime_type' => 'text/plain',
+            'extension' => 'txt',
+            'status' => 'indexing',
+        ]);
+
+        Storage::assertExists($document->stored_path);
+        $this->assertStringContainsString('fluxo interno de atendimento', Storage::get($document->stored_path));
+        Bus::assertDispatched(IndexKnowledgeDocument::class, fn (IndexKnowledgeDocument $job) => $job->documentId === $document->id);
+    }
+
+    public function test_manual_text_with_same_title_replaces_previous_text(): void
+    {
+        Bus::fake();
+        Storage::fake('local');
+
+        $ingestion = app(KnowledgeIngestionService::class);
+        $old = $ingestion->ingestText('Fluxo SUAS', 'Texto antigo sobre o fluxo SUAS.');
+        $oldPath = $old->stored_path;
+        $new = $ingestion->ingestText('Fluxo SUAS', 'Texto novo sobre o fluxo SUAS atualizado.');
+
+        $this->assertDatabaseMissing('knowledge_documents', ['id' => $old->id]);
+        $this->assertDatabaseHas('knowledge_documents', [
+            'id' => $new->id,
+            'title' => 'Fluxo SUAS',
+            'original_name' => 'fluxo-suas.txt',
+            'extension' => 'txt',
+        ]);
+        $this->assertSame(1, KnowledgeDocument::where('original_name', 'fluxo-suas.txt')->where('extension', 'txt')->count());
+        Storage::assertMissing($oldPath);
+        $this->assertStringContainsString('Texto novo', Storage::get($new->stored_path));
+    }
+
+    public function test_delete_keeps_database_and_storage_when_chroma_delete_fails(): void
+    {
+        Storage::fake('local');
+        Storage::put('knowledge/documents/certificado.pdf', 'conteudo');
+        Process::fake([
+            '*' => Process::result(output: json_encode([
+                'status' => 'failed',
+                'error' => 'Chroma indisponível',
+            ]), exitCode: 1),
+        ]);
+
+        $document = KnowledgeDocument::create([
+            'title' => 'Certificado',
+            'original_name' => 'certificado.pdf',
+            'stored_path' => 'knowledge/documents/certificado.pdf',
+            'mime_type' => 'application/pdf',
+            'extension' => 'pdf',
+            'size_bytes' => 1000,
+            'status' => 'ready',
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Chroma indisponível');
+
+        try {
+            app(KnowledgeIngestionService::class)->delete($document);
+        } finally {
+            $this->assertDatabaseHas('knowledge_documents', ['id' => $document->id]);
+            Storage::assertExists('knowledge/documents/certificado.pdf');
+        }
+    }
+
+    public function test_delete_removes_database_and_storage_after_chroma_delete_succeeds(): void
+    {
+        Storage::fake('local');
+        Storage::put('knowledge/documents/certificado.pdf', 'conteudo');
+        Process::fake([
+            '*' => Process::result(output: json_encode(['status' => 'deleted'])),
+        ]);
+
+        $document = KnowledgeDocument::create([
+            'title' => 'Certificado',
+            'original_name' => 'certificado.pdf',
+            'stored_path' => 'knowledge/documents/certificado.pdf',
+            'mime_type' => 'application/pdf',
+            'extension' => 'pdf',
+            'size_bytes' => 1000,
+            'status' => 'ready',
+        ]);
+
+        app(KnowledgeIngestionService::class)->delete($document);
+
+        $this->assertDatabaseMissing('knowledge_documents', ['id' => $document->id]);
+        Storage::assertMissing('knowledge/documents/certificado.pdf');
+    }
+
+    public function test_document_store_accepts_manual_text_without_file(): void
+    {
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldReceive('ingestText')->once()->with('Orientações CEBAS', 'Texto válido para incorporar na base interna.');
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.text.store'), [
+                'manual_title' => 'Orientações CEBAS',
+                'manual_text' => 'Texto válido para incorporar na base interna.',
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHas('status', 'Texto recebido. A indexação continuará em segundo plano; acompanhe o status na lista.');
+    }
+
+    public function test_manual_text_requires_title(): void
+    {
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldNotReceive('ingestText');
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.text.store'), [
+                'manual_text' => 'Texto válido para incorporar na base interna.',
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors('manual_title');
+    }
+
+    public function test_manual_text_rejects_blank_or_too_short_text(): void
+    {
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldNotReceive('ingestText');
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.text.store'), [
+                'manual_title' => 'Texto curto',
+                'manual_text' => 'curto',
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors('manual_text');
+    }
+
+    public function test_manual_text_rejects_title_without_sluggable_characters(): void
+    {
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldReceive('ingestText')->once()->andThrow(new \InvalidArgumentException('Informe um título com letras ou números para identificar o texto.'));
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.text.store'), [
+                'manual_title' => '!!! ###',
+                'manual_text' => 'Texto válido para incorporar na base interna.',
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors('manual_title');
     }
 
     public function test_selected_documents_are_deleted_only_with_admin_password(): void
@@ -119,58 +332,95 @@ class KnowledgeDocumentTest extends TestCase
     {
         $this->withSession(['documents_admin_authenticated' => true])
             ->from(route('documents.index'))
-            ->post(route('documents.store'), ['title' => 'Sem arquivo'])
+            ->post(route('documents.store'))
             ->assertRedirect(route('documents.index'))
-            ->assertSessionHasErrors('document');
+            ->assertSessionHasErrors('documents');
     }
 
-    public function test_document_upload_rejects_invalid_extension(): void
+    public function test_single_document_upload_uses_new_multiple_field(): void
     {
-        Bus::fake();
+        $file = UploadedFile::fake()->create('certificado.pdf', 120, 'application/pdf');
+
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldReceive('ingest')->once()->with($file);
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
 
         $this->withSession(['documents_admin_authenticated' => true])
             ->from(route('documents.index'))
             ->post(route('documents.store'), [
-                'title' => 'Arquivo inválido',
-                'document' => UploadedFile::fake()->create('arquivo.exe', 10, 'application/octet-stream'),
+                'documents' => [$file],
             ])
             ->assertRedirect(route('documents.index'))
-            ->assertSessionHasErrors('document');
+            ->assertSessionHas('status', 'Documento recebido. A indexação continuará em segundo plano; acompanhe o status na lista.');
+    }
 
-        Bus::assertNotDispatched(IndexKnowledgeDocument::class);
+    public function test_multiple_document_upload_ingests_each_file(): void
+    {
+        $pdf = UploadedFile::fake()->create('certificado.pdf', 120, 'application/pdf');
+        $docx = UploadedFile::fake()->create('manual.docx', 80, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldReceive('ingest')->once()->with($pdf);
+        $ingestion->shouldReceive('ingest')->once()->with($docx);
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.store'), [
+                'documents' => [$pdf, $docx],
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHas('status', '2 documentos recebidos. A indexação continuará em segundo plano; acompanhe o status na lista.');
+    }
+
+    public function test_document_upload_rejects_invalid_extension(): void
+    {
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldNotReceive('ingest');
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
+
+        $this->withSession(['documents_admin_authenticated' => true])
+            ->from(route('documents.index'))
+            ->post(route('documents.store'), [
+                'documents' => [UploadedFile::fake()->create('arquivo.exe', 10, 'application/octet-stream')],
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors('documents.0');
     }
 
     public function test_document_upload_rejects_oversized_file(): void
     {
         config(['knowledge.max_upload_mb' => 1]);
-        Bus::fake();
+
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldNotReceive('ingest');
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
 
         $this->withSession(['documents_admin_authenticated' => true])
             ->from(route('documents.index'))
             ->post(route('documents.store'), [
-                'title' => 'Arquivo grande',
-                'document' => UploadedFile::fake()->create('certificado.pdf', 2048, 'application/pdf'),
+                'documents' => [UploadedFile::fake()->create('certificado.pdf', 2048, 'application/pdf')],
             ])
             ->assertRedirect(route('documents.index'))
-            ->assertSessionHasErrors('document');
-
-        Bus::assertNotDispatched(IndexKnowledgeDocument::class);
+            ->assertSessionHasErrors('documents.0');
     }
 
-    public function test_document_upload_rejects_overlong_title(): void
+    public function test_document_upload_rejects_batch_with_invalid_file(): void
     {
-        Bus::fake();
+        $ingestion = Mockery::mock(KnowledgeIngestionService::class);
+        $ingestion->shouldNotReceive('ingest');
+        $this->app->instance(KnowledgeIngestionService::class, $ingestion);
 
         $this->withSession(['documents_admin_authenticated' => true])
             ->from(route('documents.index'))
             ->post(route('documents.store'), [
-                'title' => str_repeat('a', 256),
-                'document' => UploadedFile::fake()->create('certificado.pdf', 10, 'application/pdf'),
+                'documents' => [
+                    UploadedFile::fake()->create('certificado.pdf', 120, 'application/pdf'),
+                    UploadedFile::fake()->create('arquivo.exe', 10, 'application/octet-stream'),
+                ],
             ])
             ->assertRedirect(route('documents.index'))
-            ->assertSessionHasErrors('title');
-
-        Bus::assertNotDispatched(IndexKnowledgeDocument::class);
+            ->assertSessionHasErrors('documents.1');
     }
 
     public function test_selected_delete_requires_at_least_one_document(): void

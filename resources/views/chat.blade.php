@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Chat DRSP</title>
     <style>
         
@@ -146,8 +147,23 @@
             width: 8px;
             height: 8px;
             border-radius: 999px;
+            background: #98a2b3;
+            box-shadow: 0 0 0 4px rgba(152, 162, 179, 0.13), 0 0 18px rgba(152, 162, 179, 0.35);
+        }
+
+        .status.ok .dot {
             background: #32d74b;
             box-shadow: 0 0 0 4px rgba(50, 215, 75, 0.13), 0 0 18px rgba(50, 215, 75, 0.55);
+        }
+
+        .status.error .dot {
+            background: #ff3b30;
+            box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.13), 0 0 18px rgba(255, 59, 48, 0.45);
+        }
+
+        .status.checking .dot {
+            background: #ffcc00;
+            box-shadow: 0 0 0 4px rgba(255, 204, 0, 0.13), 0 0 18px rgba(255, 204, 0, 0.45);
         }
 
         .layout {
@@ -484,9 +500,9 @@
                 </div>
             </div>
 
-            <div class="status">
+            <div id="ollama-status" class="status checking" data-health-url="{{ route('chat.health') }}">
                 <span class="dot" aria-hidden="true"></span>
-                Ollama + documentos internos
+                <span id="ollama-status-text">Verificando Ollama...</span>
             </div>
         </header>
 
@@ -577,7 +593,35 @@
         const streamAnswer = document.getElementById('stream-answer');
         const answerOutput = document.getElementById('answer-output');
         const streamError = document.getElementById('stream-error');
+        const statusBadge = document.getElementById('ollama-status');
+        const statusText = document.getElementById('ollama-status-text');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
         const defaultButtonText = submitButton.textContent;
+
+        async function checkOllamaStatus() {
+            statusBadge.classList.remove('ok', 'error');
+            statusBadge.classList.add('checking');
+            statusText.textContent = 'Verificando Ollama...';
+
+            try {
+                const response = await fetch(statusBadge.dataset.healthUrl, {
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await response.json();
+
+                statusBadge.classList.remove('checking');
+                statusBadge.classList.toggle('ok', response.ok && data.ok === true);
+                statusBadge.classList.toggle('error', !response.ok || data.ok !== true);
+                statusText.textContent = data.message || (response.ok ? 'Ollama conectado' : 'Ollama indisponível');
+            } catch (error) {
+                statusBadge.classList.remove('checking', 'ok');
+                statusBadge.classList.add('error');
+                statusText.textContent = 'Ollama indisponível';
+            }
+        }
+
+        checkOllamaStatus();
+        setInterval(checkOllamaStatus, 30000);
 
         document.querySelectorAll('[data-prompt]').forEach((button) => {
             button.addEventListener('click', () => {
@@ -609,14 +653,21 @@
             try {
                 const response = await fetch(form.dataset.streamUrl, {
                     method: 'POST',
-                    body: new FormData(form),
                     headers: {
                         'Accept': 'text/plain',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
                     },
+                    body: JSON.stringify({ message: textarea.value }),
                 });
 
                 if (!response.ok || !response.body) {
-                    throw new Error('Não foi possível iniciar a resposta em tempo real.');
+                    const message = response.status === 419
+                        ? 'Sessão expirada. Recarregue a página e tente novamente.'
+                        : 'Não foi possível iniciar a resposta em tempo real.';
+
+                    throw new Error(message);
                 }
 
                 const reader = response.body.getReader();

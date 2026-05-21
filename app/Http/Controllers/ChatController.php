@@ -13,6 +13,43 @@ class ChatController extends Controller
         return view('chat');
     }
 
+    public function health()
+    {
+        $ollamaUrl = $this->ollamaUrl();
+        $model = $this->ollamaModel();
+
+        try {
+            $response = Http::timeout(3)->get($ollamaUrl.'/api/tags');
+
+            if (! $response->successful()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Ollama respondeu HTTP '.$response->status(),
+                ], 503);
+            }
+
+            $models = collect($response->json('models', []));
+            $modelAvailable = $models->contains(fn (array $item) => ($item['name'] ?? $item['model'] ?? null) === $model);
+
+            if (! $modelAvailable) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Modelo '.$model.' não encontrado no Ollama',
+                ], 503);
+            }
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Ollama conectado'
+            ]);
+        } catch (\Throwable) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Ollama indisponível'
+            ], 503);
+        }
+    }
+
     public function ask(Request $request, KnowledgeSearchService $knowledge)
     {
         $data = $request->validate([

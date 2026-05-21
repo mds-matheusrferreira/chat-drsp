@@ -6,6 +6,7 @@ use App\Http\Controllers\KnowledgeDocumentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [ChatController::class, 'index'])->name('chat.index');
+Route::get('/chat/health', [ChatController::class, 'health'])->name('chat.health');
 Route::post('/chat', [ChatController::class, 'ask'])->name('chat.ask');
 Route::post('/chat/stream', [ChatController::class, 'stream'])->name('chat.stream');
 
@@ -16,6 +17,7 @@ Route::post('/documents/logout', [DocumentAuthController::class, 'destroy'])->na
 Route::middleware('documents.admin')->group(function () {
     Route::get('/documents', [KnowledgeDocumentController::class, 'index'])->name('documents.index');
     Route::post('/documents', [KnowledgeDocumentController::class, 'store'])->name('documents.store');
+    Route::post('/documents/text', [KnowledgeDocumentController::class, 'storeText'])->name('documents.text.store');
     Route::post('/documents/delete-selected', [KnowledgeDocumentController::class, 'destroySelected'])->name('documents.destroy-selected');
     Route::delete('/documents/{document}', [KnowledgeDocumentController::class, 'destroy'])->name('documents.destroy');
 });

@@ -22,15 +22,46 @@ class KnowledgeDocumentController extends Controller
         $maxKilobytes = config('knowledge.max_upload_mb') * 1024;
 
         $data = $request->validate([
-            'title' => ['nullable', 'string', 'max:255'],
-            'document' => ['required', 'file', 'max:'.$maxKilobytes, 'mimes:'.$extensions],
+            'documents' => ['required', 'array', 'min:1'],
+            'documents.*' => ['required', 'file', 'max:'.$maxKilobytes, 'mimes:'.$extensions],
         ]);
 
-        $document = $ingestion->ingest($data['document'], $data['title'] ?? null);
+        foreach ($data['documents'] as $file) {
+            $ingestion->ingest($file);
+        }
 
-        $message = 'Documento recebido. A indexação continuará em segundo plano; acompanhe o status na lista.';
+        $count = count($data['documents']);
+        $message = $count === 1
+            ? 'Documento recebido. A indexação continuará em segundo plano; acompanhe o status na lista.'
+            : "{$count} documentos recebidos. A indexação continuará em segundo plano; acompanhe o status na lista.";
 
         return redirect()->route('documents.index')->with('status', $message);
+    }
+
+    public function storeText(Request $request, KnowledgeIngestionService $ingestion)
+    {
+        $data = $request->validate([
+            'manual_title' => ['required', 'string', 'max:255'],
+            'manual_text' => ['required', 'string', 'min:10', 'max:200000'],
+        ]);
+
+        if (trim($data['manual_text']) === '' || mb_strlen(trim($data['manual_text'])) < 10) {
+            return back()
+                ->withInput()
+                ->withErrors(['manual_text' => 'Informe um texto com pelo menos 10 caracteres.']);
+        }
+
+        try {
+            $ingestion->ingestText($data['manual_title'], $data['manual_text']);
+        } catch (\InvalidArgumentException $exception) {
+            return back()
+                ->withInput()
+                ->withErrors(['manual_title' => $exception->getMessage()]);
+        }
+
+        return redirect()
+            ->route('documents.index')
+            ->with('status', 'Texto recebido. A indexação continuará em segundo plano; acompanhe o status na lista.');
     }
 
     public function destroySelected(Request $request, KnowledgeIngestionService $ingestion)
