@@ -52,14 +52,14 @@ class ChatController extends Controller
 
     public function ask(Request $request, KnowledgeSearchService $knowledge)
     {
-        $data = $request->validate([
-            'message' => ['required', 'string', 'max:4000'],
-        ]);
+        $data = $this->validatedChatData($request);
 
         $ollamaUrl = $this->ollamaUrl();
         $model = $this->ollamaModel();
-        $results = $knowledge->search($data['message']);
-        $prompt = $this->prompt($data['message'], $knowledge->contextFromResults($results));
+        $history = $this->normalizedHistory($data['history'] ?? []);
+        $searchQuery = $this->searchQuery($data['message'], $history);
+        $results = $knowledge->search($searchQuery);
+        $prompt = $this->prompt($data['message'], $knowledge->contextFromResults($results), $history);
         $sources = $knowledge->sourcesFromResults($results);
 
         try {
@@ -88,12 +88,12 @@ class ChatController extends Controller
 
     public function stream(Request $request, KnowledgeSearchService $knowledge)
     {
-        $data = $request->validate([
-            'message' => ['required', 'string', 'max:4000'],
-        ]);
+        $data = $this->validatedChatData($request);
 
-        $results = $knowledge->search($data['message']);
-        $prompt = $this->prompt($data['message'], $knowledge->contextFromResults($results));
+        $history = $this->normalizedHistory($data['history'] ?? []);
+        $searchQuery = $this->searchQuery($data['message'], $history);
+        $results = $knowledge->search($searchQuery);
+        $prompt = $this->prompt($data['message'], $knowledge->contextFromResults($results), $history);
         $sources = $knowledge->sourcesFromResults($results);
 
         return response()->stream(function () use ($prompt) {
@@ -177,7 +177,52 @@ class ChatController extends Controller
         return env('OLLAMA_MODEL', 'gemma3:4b');
     }
 
-    private function prompt(string $message, string $knowledgeContext = ''): string
+    private function validatedChatData(Request $request): array
+    {
+        return $request->validate([
+            'message' => ['required', 'string', 'max:4000'],
+            'history' => ['sometimes', 'array', 'max:12'],
+            'history.*.role' => ['required_with:history', 'string', 'in:user,assistant'],
+            'history.*.content' => ['required_with:history', 'string', 'max:2000'],
+        ]);
+    }
+
+    private function normalizedHistory(array $history): array
+    {
+        return collect($history)
+            ->filter(fn (array $item) => in_array($item['role'] ?? null, ['user', 'assistant'], true) && trim($item['content'] ?? '') !== '')
+            ->slice(-8)
+            ->map(fn (array $item) => [
+                'role' => $item['role'],
+                'content' => mb_substr(trim($item['content']), 0, 1600),
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function searchQuery(string $message, array $history): string
+    {
+        $recentUserMessages = collect($history)
+            ->where('role', 'user')
+            ->pluck('content')
+            ->slice(-3)
+            ->implode("\n");
+
+        return trim($recentUserMessages."\n".$message);
+    }
+
+    private function conversationContext(array $history): string
+    {
+        if ($history === []) {
+            return '';
+        }
+
+        return collect($history)
+            ->map(fn (array $item) => ($item['role'] === 'user' ? 'Usuário: ' : 'Assistente: ').$item['content'])
+            ->implode("\n");
+    }
+
+    private function prompt(string $message, string $knowledgeContext = '', array $history = []): string
     {
         $prompt = <<<'PROMPT'
 Você é um assistente interno do DRSP — Departamento de Rede Socioassistencial Privada do SUAS.
@@ -202,6 +247,13 @@ Resposta: A Rede Socioassistencial Privada deve ser explicada conforme os docume
 Usuário: Qual é o prazo de um procedimento que não aparece no contexto?
 Resposta: Não encontrei informação suficiente na base interna para responder com segurança. Valide com a equipe responsável.
 PROMPT;
+
+        $conversationContext = $this->conversationContext($history);
+
+        if ($conversationContext !== '') {
+            $prompt .= "\n\nHistórico recente da conversa:\n".$conversationContext;
+            $prompt .= "\n\nUse o histórico apenas para resolver referências como 'isso', 'ele', 'quais documentos' ou 'sobre o tema anterior'.";
+        }
 
         if ($knowledgeContext !== '') {
             $prompt .= "\n\nContexto de documentos internos:\n".$knowledgeContext;

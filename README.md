@@ -184,16 +184,16 @@ Variável de limite da aplicação:
 KNOWLEDGE_MAX_UPLOAD_MB=50
 ```
 
-### Indexação em segundo plano
+### Indexação automática
 
-Arquivos grandes podem demorar para processar. Por isso o upload não espera a indexação terminar dentro do request HTTP.
+Arquivos grandes podem demorar para processar, mas a indexação acontece automaticamente durante o fluxo de upload ou reprocessamento. Não é necessário iniciar `queue:work` em outro terminal.
 
 Fluxo atual:
 
 1. arquivo é salvo;
 2. registro é criado com status `indexing`;
-3. job `IndexKnowledgeDocument` é enviado para a fila;
-4. worker da fila processa o Python de indexação;
+3. job `IndexKnowledgeDocument` é executado de forma síncrona;
+4. o Python de indexação processa o documento;
 5. documento muda para `ready` ou `failed`.
 
 Arquivos envolvidos:
@@ -339,15 +339,7 @@ Ou, em rede local, use o IP da máquina:
 http://IP_DA_MAQUINA:8000
 ```
 
-### Terminal 2 — fila de indexação
-
-```bash
-php artisan queue:work --tries=1 --timeout=1800
-```
-
-Esse worker é obrigatório para processar documentos em segundo plano.
-
-### Terminal 3 — Vite, se estiver usando assets em desenvolvimento
+### Terminal 2 — Vite, se estiver usando assets em desenvolvimento
 
 ```bash
 npm run dev
@@ -362,7 +354,7 @@ APP_DEBUG=true
 APP_URL=http://localhost
 
 DB_CONNECTION=sqlite
-QUEUE_CONNECTION=database
+QUEUE_CONNECTION=sync
 DB_QUEUE_RETRY_AFTER=2100
 
 OLLAMA_URL=http://127.0.0.1:11434
@@ -378,17 +370,9 @@ KNOWLEDGE_DOCUMENT_ADMIN_USERNAME=admin
 KNOWLEDGE_DOCUMENT_ADMIN_PASSWORD=drsp
 ```
 
-### Sobre `DB_QUEUE_RETRY_AFTER`
+### Sobre a indexação
 
-Mantenha `DB_QUEUE_RETRY_AFTER=2100` porque o job de indexação pode durar bastante.
-
-O worker usa:
-
-```bash
---timeout=1800
-```
-
-O `retry_after` precisa ser maior que o timeout do worker para evitar que o mesmo documento seja processado duas vezes enquanto ainda está indexando.
+A fila padrão é `sync`, então a indexação roda automaticamente no upload/reprocessamento. Se um documento ficar em `indexing`, verifique o erro salvo no registro do documento, o binário `KNOWLEDGE_PYTHON_BIN` e as dependências Python.
 
 ## Limites para upload grande
 
@@ -419,9 +403,8 @@ Maximum execution time of 30 seconds exceeded
 confirme que:
 
 1. o servidor foi iniciado com o comando completo acima;
-2. o worker da fila está rodando;
-3. `DB_QUEUE_RETRY_AFTER=2100` está no `.env`;
-4. as migrations foram executadas.
+2. `KNOWLEDGE_PYTHON_BIN` aponta para o Python com as dependências instaladas;
+3. as migrations foram executadas.
 
 ## Testes e validação
 
@@ -488,7 +471,7 @@ npm run build
 - O login da administração fica em `resources/views/documents/login.blade.php`.
 - A busca nos documentos fica em `app/Services/Knowledge/KnowledgeSearchService.php`.
 - A indexação fica em `app/Services/Knowledge/KnowledgeIngestionService.php` e `knowledge/ingest.py`.
-- A fila precisa estar rodando para que documentos saiam do status `indexing`.
+- A indexação roda automaticamente no upload/reprocessamento com `QUEUE_CONNECTION=sync`.
 - Ao trocar um documento por outro de mesmo nome e formato, o sistema remove o antigo e mantém o novo.
 - Não use o chat como fonte normativa final quando a base interna não trouxer informação suficiente.
 - Para temas sensíveis, o próprio prompt orienta validação com a equipe responsável.
@@ -552,13 +535,20 @@ OLLAMA_MODEL=gemma3:4b
 
 ### Documento fica parado em `indexing`
 
-Inicie o worker:
+Verifique se o Python configurado tem as dependências instaladas:
 
 ```bash
-php artisan queue:work --tries=1 --timeout=1800
+python -m pip install -r knowledge/requirements.txt
 ```
 
-Verifique se existem jobs pendentes na tabela `jobs`.
+Confirme no `.env`:
+
+```env
+KNOWLEDGE_PYTHON_BIN=python
+QUEUE_CONNECTION=sync
+```
+
+Verifique o erro salvo no registro do documento e os logs da aplicação.
 
 ### Upload grande falha
 
@@ -587,6 +577,5 @@ php artisan route:list --name=documents
 Verifique se:
 
 1. o documento está com status `ready`;
-2. o worker da fila rodou;
-3. o ChromaDB está em `storage/app/private/knowledge/chromadb`;
-4. as dependências Python foram instaladas.
+2. o ChromaDB está em `storage/app/private/knowledge/chromadb`;
+3. as dependências Python foram instaladas.

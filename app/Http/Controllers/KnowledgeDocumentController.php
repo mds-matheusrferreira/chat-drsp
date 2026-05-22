@@ -94,7 +94,7 @@ class KnowledgeDocumentController extends Controller
             'error_message' => null,
         ]);
 
-        IndexKnowledgeDocument::dispatch($document->id);
+        IndexKnowledgeDocument::dispatchSync($document->id);
 
         return redirect()->route('documents.index')->with('status', 'Reprocessamento iniciado.');
     }

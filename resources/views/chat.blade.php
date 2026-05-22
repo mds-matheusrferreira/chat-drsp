@@ -157,6 +157,12 @@
             font-weight: 900;
         }
 
+        .brand-logo {
+            display: block;
+            width: 180px;
+            height: auto;
+        }
+
         .brand h1 {
             margin: 0;
             font-size: 25px;
@@ -228,7 +234,7 @@
             width: 100%;
             border: 0;
             background: transparent;
-            color: #475569;
+            color: var(--text-secondary);
             cursor: pointer;
             padding: 2px 0;
             font-size: 14px;
@@ -334,8 +340,7 @@
         }
 
         .conversation {
-            display: grid;
-            align-content: center;
+            display: block;
             min-height: 0;
             padding: 32px;
             overflow: auto;
@@ -353,9 +358,73 @@
         .settings-card {
             border: 1px solid var(--border);
             border-radius: 18px;
-            background: rgba(255, 255, 255, 0.86);
+            background: var(--surface);
             box-shadow: var(--shadow-soft);
             padding: 24px;
+        }
+
+        :root[data-theme="dark"] .settings-icon,
+        :root[data-theme="dark"] .panel-icon,
+        :root[data-theme="dark"] .hero-mark {
+            background: rgba(59, 130, 246, 0.18);
+            color: #93c5fd;
+        }
+
+        :root[data-theme="dark"] .status.ok,
+        :root[data-theme="dark"] .connected-badge {
+            border-color: rgba(34, 197, 94, 0.34);
+            background: rgba(34, 197, 94, 0.14);
+            color: #86efac;
+        }
+
+        :root[data-theme="dark"] .status.error,
+        :root[data-theme="dark"] .error {
+            border-color: rgba(248, 113, 113, 0.38);
+            background: rgba(127, 29, 29, 0.28);
+            color: #fca5a5;
+        }
+
+        :root[data-theme="dark"] .status.checking {
+            border-color: rgba(251, 191, 36, 0.38);
+            background: rgba(120, 53, 15, 0.28);
+            color: #fcd34d;
+        }
+
+        :root[data-theme="dark"] .settings-badge,
+        :root[data-theme="dark"] .pill {
+            background: rgba(59, 130, 246, 0.18);
+            color: #93c5fd;
+        }
+
+        :root[data-theme="dark"] .settings-badge-muted {
+            background: var(--subtle-bg);
+            color: var(--text-secondary);
+        }
+
+        :root[data-theme="dark"] .answer {
+            background: var(--surface);
+            color: var(--text-primary);
+        }
+
+        :root[data-theme="dark"] .source-name,
+        :root[data-theme="dark"] .answer-title,
+        :root[data-theme="dark"] .sources-summary {
+            color: #93c5fd;
+        }
+
+        :root[data-theme="dark"] .source-item {
+            border-color: var(--border);
+        }
+
+        :root[data-theme="dark"] .recent-list button,
+        :root[data-theme="dark"] .question-list button {
+            color: var(--text-secondary);
+        }
+
+        :root[data-theme="dark"] .logout-mini {
+            border-color: rgba(248, 113, 113, 0.38);
+            background: rgba(127, 29, 29, 0.20);
+            color: #fca5a5;
         }
 
         .settings-card + .settings-card {
@@ -474,6 +543,11 @@
             font-weight: 850;
         }
 
+        .settings-badge-muted {
+            background: var(--subtle-bg);
+            color: var(--text-secondary);
+        }
+
         .session-card {
             display: flex;
             align-items: flex-start;
@@ -536,8 +610,86 @@
         }
 
         .response-stack {
-            width: min(100%, 860px);
+            display: grid;
+            width: min(100%, 920px);
             margin: 0 auto;
+            gap: 18px;
+        }
+
+        .message-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .message-row.user {
+            justify-content: flex-end;
+        }
+
+        .message-row.assistant {
+            justify-content: flex-start;
+        }
+
+        .message-avatar {
+            display: grid;
+            width: 34px;
+            height: 34px;
+            flex: 0 0 auto;
+            place-items: center;
+            border-radius: 12px;
+            background: rgba(37, 99, 235, 0.12);
+            color: var(--brand-blue);
+        }
+
+        .message-row.user .message-avatar {
+            order: 2;
+            background: linear-gradient(135deg, #3b82f6, var(--brand-purple));
+            color: #ffffff;
+        }
+
+        .message-bubble {
+            max-width: min(680px, 78%);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: var(--surface);
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
+            padding: 16px 18px;
+            color: var(--text-primary);
+            line-height: 1.7;
+            white-space: pre-wrap;
+        }
+
+        .message-row.user .message-bubble {
+            border-color: rgba(37, 99, 235, 0.20);
+            border-bottom-right-radius: 8px;
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
+            color: #ffffff;
+            box-shadow: 0 14px 28px rgba(37, 99, 235, 0.22);
+        }
+
+        .message-row.assistant .message-bubble {
+            border-bottom-left-radius: 8px;
+        }
+
+        .message-label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            white-space: normal;
+        }
+
+        .message-row.user .message-label {
+            color: rgba(255, 255, 255, 0.78);
+        }
+
+        .message-sources {
+            width: min(680px, 78%);
+            margin-left: 46px;
         }
 
         .alert {
@@ -550,9 +702,9 @@
 
         .answer {
             border: 1px solid rgba(37, 99, 235, 0.16);
-            background: rgba(255, 255, 255, 0.86);
+            background: var(--surface);
             box-shadow: var(--shadow-soft);
-            color: #1e293b;
+            color: var(--text-primary);
         }
 
         .answer-title,
@@ -619,7 +771,7 @@
         .source-name {
             display: block;
             margin-bottom: 6px;
-            color: #1d4ed8;
+            color: var(--brand-blue);
             font-weight: 850;
         }
 
@@ -773,7 +925,7 @@
             border: 0;
             border-radius: 12px;
             background: transparent;
-            color: #52637a;
+            color: var(--text-secondary);
             cursor: pointer;
             padding: 12px 10px;
             font-size: 14px;
@@ -830,6 +982,8 @@
             .brand { padding: 20px; }
             .topbar { padding: 18px 20px; align-items: flex-start; flex-direction: column; }
             .conversation { min-height: 44vh; padding: 24px 18px; }
+            .message-bubble,
+            .message-sources { max-width: 100%; width: calc(100% - 46px); }
             .composer-wrap { padding: 18px; }
             textarea { padding-right: 18px; padding-bottom: 70px; }
             .composer-meta { left: 14px; justify-content: space-between; }
@@ -840,11 +994,7 @@
     <div class="app-shell">
         <aside class="sidebar">
             <div class="brand">
-                <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.7 5.2L19 10l-5.3 1.8L12 17l-1.7-5.2L5 10l5.3-1.8L12 3z"/><path d="M5 14l.9 2.6L8.5 18l-2.6.9L5 21l-.9-2.1L1.5 18l2.6-1.4L5 14z"/><path d="M19 3l.8 2.2L22 6l-2.2.8L19 9l-.8-2.2L16 6l2.2-.8L19 3z"/></svg></div>
-                <div>
-                    <h1>Chat DRSP</h1>
-                    <p>AI Assistant</p>
-                </div>
+                <img class="brand-logo" src="{{ asset('images/Logo-drsp.png') }}" alt="DRSP Assistente Virtual">
             </div>
 
             <nav class="nav" aria-label="Navegação principal">
@@ -860,7 +1010,7 @@
             <header class="topbar">
                 <div class="topbar-title">
                     <h2 id="main-title">Chat com IA</h2>
-                    <div id="ollama-status" class="status checking" data-health-url="{{ route('chat.health') }}">
+                    <div id="ollama-status" class="status checking" data-health-url="/chat-drsp/index.php/chat/health">
                         <span class="dot" aria-hidden="true"></span>
                         <span id="ollama-status-text">Verificando Ollama...</span>
                     </div>
@@ -877,12 +1027,15 @@
                         <p>Faça suas perguntas sobre procedimentos DRSP/SUAS e obtenha respostas da base de conhecimento local.</p>
                     </div>
 
-                    <article id="stream-answer" class="alert answer" hidden>
-                        <div class="answer-title">Resposta</div>
-                        <div id="answer-output"></div>
+                    <article id="stream-answer" class="message-row assistant" hidden>
+                        <span class="message-avatar"><svg class="icon icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></span>
+                        <div class="message-bubble">
+                            <span class="message-label">Assistente</span>
+                            <div id="answer-output"></div>
+                        </div>
                     </article>
 
-                    <details id="stream-sources" class="alert answer sources-disclosure" hidden>
+                    <details id="stream-sources" class="alert answer sources-disclosure message-sources" hidden>
                         <summary class="sources-summary">Fontes consultadas</summary>
                         <ul id="source-list" class="source-list"></ul>
                     </details>
@@ -923,7 +1076,7 @@
             </section>
 
             <section class="composer-wrap">
-                <form id="chat-form" method="POST" action="{{ route('chat.ask') }}" data-stream-url="{{ route('chat.stream') }}" class="composer">
+                <form id="chat-form" method="POST" action="/chat-drsp/index.php/chat" data-stream-url="/chat-drsp/index.php/chat/stream" class="composer">
                     @csrf
                     <textarea id="message" name="message" maxlength="4000" placeholder="Digite sua pergunta sobre DRSP/SUAS..." required>{{ old('message') }}</textarea>
                     @error('message')
@@ -948,7 +1101,7 @@
                                         <p>Você está autenticado como administrador</p>
                                     </div>
                                 </div>
-                                <form method="POST" action="{{ route('documents.logout') }}">
+                                <form method="POST" action="/chat-drsp/index.php/documents/logout">
                                     @csrf
                                     <button type="submit" class="logout-mini"><svg class="icon icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg> Sair</button>
                                 </form>
@@ -985,7 +1138,7 @@
                                 @endif
                             </div>
                         </div>
-                        <a class="settings-action" href="{{ session('documents_admin_authenticated') === true ? route('documents.index') : route('documents.login') }}">
+                        <a class="settings-action" href="{{ session('documents_admin_authenticated') === true ? '/chat-drsp/index.php/documents' : '/chat-drsp/index.php/documents/login' }}">
                             @if (session('documents_admin_authenticated') === true)
                                 <svg class="icon icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Gerenciar documentos
                             @else
@@ -1011,7 +1164,7 @@
                         <div class="settings-row">
                             <div>
                                 <span class="settings-label">Temperatura</span>
-                                <span class="settings-badge" style="background:#e2e8f0;color:#64748b;">0.7</span>
+                                <span class="settings-badge settings-badge-muted">0.7</span>
                             </div>
                         </div>
                     </article>
@@ -1030,10 +1183,10 @@
                 </div>
                 <ul class="question-list">
                     <li><button type="button" data-prompt="Como funciona o cadastro no SUAS?">Como funciona o cadastro no SUAS?</button></li>
-                    <li><button type="button" data-prompt="Quais são os benefícios disponíveis?">Quais são os benefícios disponíveis?</button></li>
                     <li><button type="button" data-prompt="Procedimentos para atualização cadastral">Procedimentos para atualização cadastral</button></li>
                     <li><button type="button" data-prompt="Documentação necessária para benefícios">Documentação necessária para benefícios</button></li>
                 </ul>
+                
             </section>
 
             <section class="panel">
@@ -1069,6 +1222,7 @@
         const statusText = document.getElementById('ollama-status-text');
         const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
         const defaultButtonText = submitButton.textContent;
+        const chatHistory = [];
         const charCount = document.getElementById('char-count');
         const emptyState = document.getElementById('empty-state');
         const clearChatButton = document.getElementById('clear-chat-button');
@@ -1123,8 +1277,65 @@
             charCount.textContent = textarea.value.length;
         }
 
+        function appendMessage(role, content = '') {
+            const row = document.createElement('article');
+            row.className = `message-row ${role}`;
+
+            const avatar = document.createElement('span');
+            avatar.className = 'message-avatar';
+            avatar.innerHTML = role === 'user'
+                ? '<svg class="icon icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>'
+                : '<svg class="icon icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>';
+
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+
+            const label = document.createElement('span');
+            label.className = 'message-label';
+            label.textContent = role === 'user' ? 'Você' : 'Assistente';
+
+            const body = document.createElement('div');
+            body.className = 'message-content';
+            body.textContent = content;
+
+            bubble.append(label, body);
+            row.append(avatar, bubble);
+            streamAnswer.before(row);
+
+            return { row, body };
+        }
+
+        function attachSourcesToMessage(encodedSources) {
+            renderSources(encodedSources);
+
+            if (!streamSources.hidden) {
+                streamAnswer.before(streamSources);
+            }
+        }
+
+        function scrollConversationToBottom() {
+            conversation.scrollTo({ top: conversation.scrollHeight, behavior: 'smooth' });
+        }
+
+        function historyForRequest() {
+            return chatHistory.slice(-8).map((item) => ({
+                role: item.role,
+                content: item.content.slice(0, 1600),
+            }));
+        }
+
+        function addHistory(role, content) {
+            chatHistory.push({ role, content: content.trim() });
+
+            if (chatHistory.length > 12) {
+                chatHistory.splice(0, chatHistory.length - 12);
+            }
+        }
+
         function clearConversation() {
             textarea.value = '';
+            chatHistory.length = 0;
+            document.querySelectorAll('.response-stack > .message-row').forEach((message) => message.remove());
             answerOutput.textContent = '';
             streamAnswer.hidden = true;
             renderSources(null);
@@ -1243,7 +1454,9 @@
 
             event.preventDefault();
 
-            if (!textarea.value.trim()) {
+            const message = textarea.value.trim();
+
+            if (!message) {
                 streamError.textContent = 'Digite uma mensagem para enviar.';
                 streamError.hidden = false;
                 return;
@@ -1252,9 +1465,19 @@
             emptyState.hidden = true;
             streamError.hidden = true;
             streamError.textContent = '';
-            streamAnswer.hidden = false;
+            streamAnswer.hidden = true;
             answerOutput.textContent = '';
             renderSources(null);
+
+            const history = historyForRequest();
+
+            appendMessage('user', message);
+            addHistory('user', message);
+            const assistantMessage = appendMessage('assistant');
+            textarea.value = '';
+            updateCharacterCount();
+            scrollConversationToBottom();
+
             submitButton.disabled = true;
             submitButton.textContent = 'Gerando...';
 
@@ -1267,18 +1490,16 @@
                         'X-CSRF-TOKEN': csrfToken,
                         'X-Requested-With': 'XMLHttpRequest',
                     },
-                    body: JSON.stringify({ message: textarea.value }),
+                    body: JSON.stringify({ message, history }),
                 });
 
                 if (!response.ok || !response.body) {
-                    const message = response.status === 419
+                    const errorMessage = response.status === 419
                         ? 'Sessão expirada. Recarregue a página e tente novamente.'
                         : 'Não foi possível iniciar a resposta em tempo real.';
 
-                    throw new Error(message);
+                    throw new Error(errorMessage);
                 }
-
-                renderSources(response.headers.get('X-Knowledge-Sources'));
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
@@ -1290,16 +1511,20 @@
                         break;
                     }
 
-                    answerOutput.textContent += decoder.decode(value, { stream: true });
-                    streamAnswer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    assistantMessage.body.textContent += decoder.decode(value, { stream: true });
+                    scrollConversationToBottom();
                 }
+
+                addHistory('assistant', assistantMessage.body.textContent);
+                attachSourcesToMessage(response.headers.get('X-Knowledge-Sources'));
             } catch (error) {
-                streamAnswer.hidden = true;
+                assistantMessage.row.remove();
                 streamError.textContent = error.message || 'Não foi possível conectar ao Ollama. Inicie o Ollama e tente novamente.';
                 streamError.hidden = false;
             } finally {
                 submitButton.disabled = false;
                 submitButton.textContent = defaultButtonText;
+                textarea.focus();
             }
         });
     </script>

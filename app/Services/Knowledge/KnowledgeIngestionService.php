@@ -36,7 +36,7 @@ class KnowledgeIngestionService
             ]);
         });
 
-        IndexKnowledgeDocument::dispatch($document->id);
+        IndexKnowledgeDocument::dispatchSync($document->id);
 
         return $document->refresh();
     }
@@ -71,7 +71,7 @@ class KnowledgeIngestionService
             ]);
         });
 
-        IndexKnowledgeDocument::dispatch($document->id);
+        IndexKnowledgeDocument::dispatchSync($document->id);
 
         return $document->refresh();
     }
@@ -87,7 +87,7 @@ class KnowledgeIngestionService
         ], 120);
 
         $output = trim($result->output()) ?: trim($result->errorOutput());
-        $payload = json_decode($output, true);
+        $payload = $this->jsonPayload($output);
 
         if ($result->failed() || ! is_array($payload) || ($payload['status'] ?? null) !== 'deleted') {
             throw new \RuntimeException($payload['error'] ?? $output ?: 'Falha ao remover documento da base vetorial.');
@@ -115,7 +115,7 @@ class KnowledgeIngestionService
 
 
         $output = trim($result->output()) ?: trim($result->errorOutput());
-        $payload = json_decode($output, true);
+        $payload = $this->jsonPayload($output);
 
         if ($result->failed() || ! is_array($payload) || ($payload['status'] ?? null) !== 'ready') {
             $document->update([
@@ -131,6 +131,37 @@ class KnowledgeIngestionService
             'chunks_count' => $payload['chunks_count'] ?? 0,
             'error_message' => null,
         ]);
+    }
+
+    private function jsonPayload(string $output): ?array
+    {
+        if ($output === '') {
+            return null;
+        }
+
+        $payload = json_decode($output, true);
+
+        if (is_array($payload)) {
+            return $payload;
+        }
+
+        $lines = array_reverse(preg_split('/\R/', $output) ?: []);
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+
+            if ($line === '' || ! str_starts_with($line, '{')) {
+                continue;
+            }
+
+            $payload = json_decode($line, true);
+
+            if (is_array($payload)) {
+                return $payload;
+            }
+        }
+
+        return null;
     }
 
     private function replaceExisting(string $originalName, string $extension): void

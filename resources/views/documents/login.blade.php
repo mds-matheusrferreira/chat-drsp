@@ -53,17 +53,10 @@
         }
 
         .logo {
-            display: grid;
-            width: 64px;
-            height: 64px;
+            display: block;
+            width: 190px;
+            height: auto;
             margin: 0 auto 18px;
-            place-items: center;
-            border-radius: 18px;
-            background: linear-gradient(135deg, var(--brand-blue), var(--brand-purple));
-            box-shadow: 0 18px 36px rgba(79, 70, 229, 0.28);
-            color: #ffffff;
-            font-size: 30px;
-            font-weight: 900;
         }
 
         h1 {
@@ -192,7 +185,7 @@
 </head>
 <body>
     <main class="login-shell" role="main" aria-labelledby="login-title">
-        <div class="logo"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.7 5.2L19 10l-5.3 1.8L12 17l-1.7-5.2L5 10l5.3-1.8L12 3z"/><path d="M5 14l.9 2.6L8.5 18l-2.6.9L5 21l-.9-2.1L1.5 18l2.6-1.4L5 14z"/><path d="M19 3l.8 2.2L22 6l-2.2.8L19 9l-.8-2.2L16 6l2.2-.8L19 3z"/></svg></div>
+        <img class="logo" src="{{ asset('images/Logo-drsp.png') }}" alt="DRSP Assistente Virtual">
         <h1 id="login-title">Chat DRSP</h1>
         <p class="subtitle">Acesso restrito para gerenciamento de documentos</p>
 
@@ -201,7 +194,7 @@
                 <div class="error">{{ $errors->first() }}</div>
             @endif
 
-            <form method="POST" action="{{ route('documents.login.store') }}">
+            <form method="POST" action="/chat-drsp/index.php/documents/login">
                 @csrf
                 <label for="username">
                     Administrador Base Interna
@@ -224,7 +217,7 @@
 
         </section>
 
-        <a class="link" href="{{ route('chat.index') }}">Voltar ao chat</a>
+        <a class="link" href="/chat-drsp/index.php">Voltar ao chat</a>
         <p class="footer-note">Sistema de IA local para consultas DRSP/SUAS</p>
     </main>
 </body>

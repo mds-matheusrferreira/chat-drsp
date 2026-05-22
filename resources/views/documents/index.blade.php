@@ -106,6 +106,12 @@
             font-weight: 900;
         }
 
+        .brand-logo {
+            display: block;
+            width: 180px;
+            height: auto;
+        }
+
         .brand h1 {
             margin: 0;
             font-size: 25px;
@@ -281,17 +287,155 @@
 
         .content {
             display: grid;
-            grid-template-columns: minmax(0, 780px) 360px;
-            gap: 26px;
-            width: min(100%, 1420px);
+            grid-template-columns: minmax(0, 780px) 300px;
+            grid-template-rows: auto auto auto;
+            gap: 18px 24px;
+            width: min(100%, 1240px);
             margin: 0 auto;
             padding: 28px 24px 56px;
             align-items: start;
         }
 
+        .tabs {
+            display: inline-flex;
+            grid-column: 1;
+            grid-row: 1;
+            width: max-content;
+            gap: 4px;
+            border: 1px solid rgba(226, 232, 240, 0.86);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.78);
+            padding: 5px;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+        }
+
+        .tab-button {
+            border-radius: 12px;
+            background: transparent;
+            box-shadow: none;
+            color: var(--text-primary);
+            padding: 9px 14px;
+            font-size: 14px;
+            font-weight: 850;
+        }
+
+        .tab-button.active {
+            background: #ffffff;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        [data-tab-panel][hidden] {
+            display: none !important;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-column: 1 / -1;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 22px;
+        }
+
+        .stat-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 98px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--surface);
+            box-shadow: var(--shadow-soft);
+            padding: 22px 24px;
+        }
+
+        .stat-value {
+            display: block;
+            color: var(--text-primary);
+            font-size: 28px;
+            font-weight: 950;
+            letter-spacing: -0.05em;
+            line-height: 1;
+        }
+
+        .stat-label {
+            display: block;
+            margin-top: 7px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 750;
+        }
+
+        .stat-icon {
+            display: grid;
+            width: 44px;
+            height: 44px;
+            place-items: center;
+            border-radius: 12px;
+            background: rgba(124, 58, 237, 0.10);
+            color: var(--brand-purple);
+        }
+
         .document-base-card {
             grid-column: 1 / -1;
-            grid-row: 3;
+        }
+
+        .documents-list {
+            display: grid;
+            gap: 12px;
+            margin-top: 22px;
+        }
+
+        .document-item {
+            display: grid;
+            grid-template-columns: 24px 42px minmax(0, 1fr) auto auto auto;
+            gap: 14px;
+            align-items: center;
+            border: 1px solid rgba(226, 232, 240, 0.86);
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.74);
+            padding: 16px;
+        }
+
+        .document-file-icon {
+            display: grid;
+            width: 42px;
+            height: 42px;
+            place-items: center;
+            border-radius: 12px;
+            background: rgba(124, 58, 237, 0.10);
+            color: var(--brand-blue);
+        }
+
+        .document-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .base-header {
+            display: flex;
+            gap: 18px;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        .base-title h2 {
+            margin-bottom: 4px;
+        }
+
+        .delete-panel {
+            display: grid;
+            gap: 12px;
+            min-width: 320px;
+            border: 1px solid #fecaca;
+            border-radius: 14px;
+            background: rgba(254, 242, 242, 0.72);
+            padding: 14px;
+        }
+
+        .delete-panel label {
+            margin-bottom: 0;
         }
 
         .left-column {
@@ -301,10 +445,12 @@
         .right-column {
             display: grid;
             grid-column: 2;
-            grid-row: 1 / 3;
-            gap: 24px;
+            grid-row: 1 / span 2;
+            gap: 16px;
             min-width: 0;
             align-self: start;
+            position: sticky;
+            top: 84px;
         }
 
         .left-column > .alert {
@@ -313,6 +459,11 @@
 
         .left-column > .card:not(.document-base-card) {
             grid-column: 1;
+            grid-row: auto;
+        }
+
+        .left-column > .card:first-child {
+            grid-row: 2;
         }
 
         .card,
@@ -322,7 +473,12 @@
             border-radius: 18px;
             background: var(--surface);
             box-shadow: var(--shadow-soft);
-            padding: 26px;
+            padding: 24px;
+        }
+
+        .side-card {
+            border-radius: 16px;
+            padding: 18px;
         }
 
         .card h2,
@@ -481,20 +637,20 @@
 
         .steps {
             display: grid;
-            gap: 18px;
-            margin: 22px 0 0;
+            gap: 12px;
+            margin: 14px 0 0;
         }
 
         .step {
             display: grid;
-            grid-template-columns: 28px 1fr;
-            gap: 12px;
+            grid-template-columns: 24px 1fr;
+            gap: 10px;
         }
 
         .step-number {
             display: grid;
-            width: 28px;
-            height: 28px;
+            width: 24px;
+            height: 24px;
             place-items: center;
             border-radius: 999px;
             background: #dbeafe;
@@ -511,62 +667,88 @@
             background: linear-gradient(135deg, rgba(240, 253, 244, 0.90), rgba(224, 242, 254, 0.72));
         }
 
-        .danger-panel {
-            margin-bottom: 18px;
-            border: 1px solid #fecaca;
-            border-radius: 16px;
-            background: rgba(254, 242, 242, 0.76);
-            padding: 16px;
+        .quick-card {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
         }
+
+        .quick-icon {
+            display: grid;
+            width: 34px;
+            height: 34px;
+            flex: 0 0 auto;
+            place-items: center;
+            border-radius: 10px;
+            background: rgba(37, 99, 235, 0.12);
+            color: var(--brand-blue);
+        }
+
+        .fast-card {
+            border-color: #fed7aa;
+            background: linear-gradient(135deg, rgba(255, 247, 237, 0.92), rgba(254, 242, 242, 0.72));
+        }
+
+        .fast-card .quick-icon {
+            background: #fed7aa;
+            color: #f97316;
+        }
+
+        .privacy .quick-icon {
+            background: #bbf7d0;
+            color: var(--success);
+        }
+
+        .dropzone .upload-icon {
+            background: linear-gradient(135deg, #3b82f6, var(--brand-purple));
+            box-shadow: 0 16px 30px rgba(79, 70, 229, 0.28);
+            color: #ffffff;
+        }
+
+        .upload-card-header,
+        .text-card-header {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .section-icon {
+            display: grid;
+            width: 42px;
+            height: 42px;
+            flex: 0 0 auto;
+            place-items: center;
+            border-radius: 14px;
+            background: rgba(124, 58, 237, 0.10);
+            color: var(--brand-purple);
+        }
+
+        .gradient-submit {
+            background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+            box-shadow: 0 14px 28px rgba(79, 70, 229, 0.22) !important;
+        }
+
+        .purple-submit {
+            background: linear-gradient(135deg, #a78bfa, var(--brand-purple)) !important;
+            box-shadow: 0 12px 24px rgba(124, 58, 237, 0.22) !important;
+        }
+
+        .base-empty {
+            border: 1px dashed var(--border-strong);
+            border-radius: 14px;
+            padding: 30px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+
 
         .danger-actions {
             display: grid;
             grid-template-columns: minmax(180px, 1fr) auto;
             gap: 12px;
             align-items: end;
-        }
-
-        .table-wrap {
-            max-width: 100%;
-            overflow-x: auto;
-            overflow-y: hidden;
-            padding-bottom: 8px;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .table-wrap::-webkit-scrollbar {
-            height: 10px;
-        }
-
-        .table-wrap::-webkit-scrollbar-track {
-            border-radius: 999px;
-            background: #e2e8f0;
-        }
-
-        .table-wrap::-webkit-scrollbar-thumb {
-            border-radius: 999px;
-            background: #94a3b8;
-        }
-
-        table {
-            width: 100%;
-            min-width: 980px;
-            border-collapse: collapse;
-        }
-
-        th,
-        td {
-            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-            padding: 13px 10px;
-            text-align: left;
-            vertical-align: top;
-        }
-
-        th {
-            color: var(--text-secondary);
-            font-size: 12px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
         }
 
         .badge {
@@ -656,6 +838,13 @@
                 grid-row: auto;
             }
             .right-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .document-item { grid-template-columns: 24px 42px minmax(0, 1fr); }
+            .document-item > .badge,
+            .document-item > [data-document-chunks],
+            .document-item > .actions { grid-column: 3; }
+            .base-header { display: grid; }
+            .delete-panel { min-width: 0; }
         }
 
         @media (max-width: 820px) {
@@ -667,7 +856,14 @@
             .topbar { align-items: flex-start; flex-direction: column; gap: 14px; padding: 18px 20px; }
             .content { padding: 22px 16px 42px; }
             .right-column { grid-template-columns: 1fr; }
-            .danger-actions { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .tabs { width: 100%; }
+            .tab-button { flex: 1; }
+            .document-item { grid-template-columns: 1fr; }
+            .document-item > .badge,
+            .document-item > [data-document-chunks],
+            .document-item > .actions { grid-column: auto; }
+            .document-file-icon { display: none; }
         }
     </style>
 </head>
@@ -675,20 +871,16 @@
     <div class="app-shell">
         <aside class="sidebar">
             <div class="brand">
-                <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.7 5.2L19 10l-5.3 1.8L12 17l-1.7-5.2L5 10l5.3-1.8L12 3z"/><path d="M5 14l.9 2.6L8.5 18l-2.6.9L5 21l-.9-2.1L1.5 18l2.6-1.4L5 14z"/><path d="M19 3l.8 2.2L22 6l-2.2.8L19 9l-.8-2.2L16 6l2.2-.8L19 3z"/></svg></div>
-                <div>
-                    <h1>Chat DRSP</h1>
-                    <p>AI Assistant</p>
-                </div>
+                <img class="brand-logo" src="{{ asset('images/Logo-drsp.png') }}" alt="DRSP Assistente Virtual">
             </div>
 
             <nav class="nav" aria-label="Navegação principal">
-                <a href="{{ route('chat.index') }}"><span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span> Nova Conversa</a>
-                <a class="active" href="{{ route('documents.index') }}"><span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span> Documentos</a>
+                <a href="/chat-drsp/index.php"><span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span> Nova Conversa</a>
+                <a class="active" href="/chat-drsp/index.php/documents"><span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span> Documentos</a>
             </nav>
 
             <div class="sidebar-footer nav">
-                <a href="{{ route('chat.index') }}"><span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span> Configurações</a>
+                <a href="/chat-drsp/index.php"><span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span> Configurações</a>
             </div>
         </aside>
 
@@ -702,131 +894,100 @@
                     </div>
                 </div>
                 <div class="top-actions">
-                    <form method="POST" action="{{ route('documents.logout') }}">
+                    <form method="POST" action="/chat-drsp/index.php/documents/logout">
                         @csrf
                         <button class="secondary" type="submit"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg> Sair</button>
                     </form>
-                    <a class="link" href="{{ route('chat.index') }}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> Fechar</a>
+                    <a class="link" href="/chat-drsp/index.php"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> Fechar</a>
                 </div>
             </header>
 
+            @php
+                $totalDocuments = $documents->count();
+                $readyDocuments = $documents->where('status', 'ready')->count();
+                $totalSize = $documents->sum('size_bytes');
+                $indexedPercent = $totalDocuments > 0 ? round(($readyDocuments / $totalDocuments) * 100) : 0;
+                $formatBytes = function (int|float|null $bytes): string {
+                    $bytes = (float) ($bytes ?? 0);
+
+                    if ($bytes >= 1024 * 1024) {
+                        return rtrim(rtrim(number_format($bytes / 1024 / 1024, 1, ',', ''), '0'), ',').' MB';
+                    }
+
+                    return max(1, (int) ceil($bytes / 1024)).' KB';
+                };
+            @endphp
+
             <section class="content">
-                <div class="left-column">
-                    @if (session('status'))
-                        <div class="alert">{{ session('status') }}</div>
-                    @endif
+                @if (session('status'))
+                    <div class="alert">{{ session('status') }}</div>
+                @endif
 
-                    @if ($errors->any())
-                        <div class="alert error">{{ $errors->first() }}</div>
-                    @endif
+                @if ($errors->any())
+                    <div class="alert error">{{ $errors->first() }}</div>
+                @endif
 
+                <div class="tabs" role="tablist" aria-label="Seções de documentos">
+                    <button class="tab-button active" type="button" data-tab-target="new-documents" role="tab" aria-selected="true">Novos documentos</button>
+                    <button class="tab-button" type="button" data-tab-target="current-base" role="tab" aria-selected="false">Base atual</button>
+                </div>
+
+                <div class="left-column" data-tab-panel="new-documents">
                     <section class="card">
-                        <h2>Enviar novos documentos</h2>
-                        <p class="muted">Adicione novos documentos à base de conhecimento. Os documentos serão indexados e estarão disponíveis para consulta.</p>
+                        <div class="upload-card-header">
+                            <span class="section-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg></span>
+                            <div>
+                                <h2>Enviar novos documentos</h2>
+                                <p class="muted">Adicione documentos à base de conhecimento</p>
+                            </div>
+                        </div>
 
-                        <form method="POST" action="{{ route('documents.store') }}" enctype="multipart/form-data">
+                        <form method="POST" action="/chat-drsp/index.php/documents" enctype="multipart/form-data">
                             @csrf
                             <label class="dropzone" id="document-dropzone" for="documents">
                                 <input id="documents" type="file" name="documents[]" accept="{{ collect($allowedExtensions)->map(fn ($extension) => '.'.$extension)->implode(',') }}" multiple required>
                                 <span class="upload-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg></span>
                                 <span>
                                     <span class="dropzone-title">Arraste arquivos aqui</span>
-                                    <span class="muted">ou clique para selecionar</span>
+                                    <span class="muted">ou clique para selecionar do seu computador</span>
                                 </span>
                                 <ul id="selected-files" class="file-list" hidden></ul>
                                 <span id="file-feedback" class="file-feedback">Nenhum arquivo selecionado.</span>
                             </label>
 
-                            <div class="file-hint"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> Formatos aceitos: {{ implode(', ', $allowedExtensions) }}. Tamanho máximo: {{ $maxUploadMb }} MB por arquivo.</div>
-                            <button id="upload-submit" class="primary-button" type="submit"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Enviar e indexar documentos</button>
+                            <div class="file-hint"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> Formatos aceitos: {{ implode(', ', $allowedExtensions) }} · Tamanho máximo: {{ $maxUploadMb }} MB por arquivo.</div>
+                            <button id="upload-submit" class="primary-button gradient-submit" type="submit"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Enviar e indexar documentos</button>
                         </form>
                     </section>
 
                     <section class="card">
-                        <h2>Colar texto diretamente</h2>
-                        <p class="muted">Cole texto de documentos para adicionar à base de conhecimento sem fazer upload de arquivo.</p>
+                        <div class="text-card-header">
+                            <span class="section-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg></span>
+                            <div>
+                                <h2>Colar texto diretamente</h2>
+                                <p class="muted">Adicione conteúdo sem fazer upload</p>
+                            </div>
+                        </div>
 
-                        <form method="POST" action="{{ route('documents.text.store') }}">
+                        <form method="POST" action="/chat-drsp/index.php/documents/text">
                             @csrf
                             <div>
-                                <label for="manual_title">Título do documento</label>
+                                <label for="manual_title">Título do documento <span style="color: var(--danger);">*</span></label>
                                 <input id="manual_title" type="text" name="manual_title" placeholder="Ex.: Procedimentos Internos DRSP" value="{{ old('manual_title') }}" required>
                             </div>
                             <div>
-                                <label for="manual_text">Conteúdo do texto</label>
+                                <label for="manual_text">Conteúdo do texto <span style="color: var(--danger);">*</span></label>
                                 <textarea id="manual_text" name="manual_text" placeholder="Cole aqui o conteúdo do documento..." required>{{ old('manual_text') }}</textarea>
                                 <div class="text-counter"><span id="manual-text-count">0</span> caracteres</div>
                             </div>
-                            <button type="submit" style="background: linear-gradient(135deg, #a78bfa, var(--brand-purple)); box-shadow: 0 12px 24px rgba(124, 58, 237, 0.22);"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Salvar texto na base</button>
+                            <button class="purple-submit" type="submit"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Salvar texto na base</button>
                         </form>
-                    </section>
-
-                    <section class="card document-base-card">
-                        <h2>Base atual</h2>
-
-                        @if ($documents->isEmpty())
-                            <p class="muted">Nenhum documento enviado ainda.</p>
-                        @else
-                            <form id="delete-selected-form" method="POST" action="{{ route('documents.destroy-selected') }}" onsubmit="return confirm('Confirma a exclusão dos documentos selecionados? Esta ação remove os arquivos e a indexação da base.');">
-                                @csrf
-
-                                <div class="danger-panel">
-                                    <p class="muted">Selecione documentos para excluir da base atual. Informe a senha de administrador para confirmar.</p>
-                                    <div class="danger-actions">
-                                        <div>
-                                            <label for="delete-password">Senha</label>
-                                            <input id="delete-password" type="password" name="password" autocomplete="current-password" required>
-                                        </div>
-                                        <button class="delete" type="submit">Excluir selecionados</button>
-                                    </div>
-                                </div>
-
-                                <div class="table-wrap">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th class="select-cell">Sel.</th>
-                                                <th>Documento</th>
-                                                <th>Status</th>
-                                                <th>Chunks</th>
-                                                <th>Ações</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach ($documents as $document)
-                                                <tr data-document-id="{{ $document->id }}">
-                                                    <td class="select-cell"><input type="checkbox" name="documents[]" value="{{ $document->id }}" aria-label="Selecionar {{ $document->original_name }}"></td>
-                                                    <td>
-                                                        <strong data-document-title>{{ $document->title }}</strong><br>
-                                                        <span class="muted" data-document-name>{{ $document->original_name }} · {{ strtoupper($document->extension) }}</span>
-                                                        <span class="document-error" data-document-error @if (! $document->error_message) hidden @endif>{{ $document->error_message }}</span>
-                                                    </td>
-                                                    <td><span data-document-status class="badge {{ $document->status }}">{{ $document->status }}</span></td>
-                                                    <td data-document-chunks>{{ $document->chunks_count }}</td>
-                                                    <td>
-                                                        <div class="actions">
-                                                            <button class="secondary" type="submit" form="reprocess-document-{{ $document->id }}" data-reprocess-button @if ($document->status === 'indexing') hidden @endif>Processar</button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </form>
-
-                            @foreach ($documents as $document)
-                                <form id="reprocess-document-{{ $document->id }}" method="POST" action="{{ route('documents.reprocess', $document) }}">
-                                    @csrf
-                                </form>
-                            @endforeach
-                        @endif
                     </section>
                 </div>
 
-                <aside class="right-column">
+                <aside class="right-column" data-tab-panel="new-documents">
                     <section class="side-card">
-                        <h3>Como funciona</h3>
+                        <h3><span class="quick-icon" style="display:inline-grid;margin-right:8px;"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span> Como funciona</h3>
                         <div class="steps">
                             <div class="step">
                                 <span class="step-number">1</span>
@@ -843,11 +1004,81 @@
                         </div>
                     </section>
 
-                    <section class="side-card privacy">
-                        <h3><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.7 8.9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Privacidade garantida</h3>
-                        <p class="muted">Todos os documentos são processados localmente. Nenhum dado é enviado para servidores externos.</p>
+                    <section class="side-card privacy quick-card">
+                        <span class="quick-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.7 8.9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span>
+                        <div>
+                            <h3>Privacidade garantida</h3>
+                            <p class="muted">Todos os documentos são processados localmente. Nenhum dado é enviado para servidores externos.</p>
+                        </div>
                     </section>
                 </aside>
+
+                <div class="stats-grid" data-tab-panel="current-base" hidden>
+                    <section class="stat-card">
+                        <div><span class="stat-value">{{ $totalDocuments }}</span><span class="stat-label">Documentos</span></div>
+                        <span class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+                    </section>
+                    <section class="stat-card">
+                        <div><span class="stat-value">{{ $formatBytes($totalSize) }}</span><span class="stat-label">Tamanho total</span></div>
+                        <span class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span>
+                    </section>
+                    <section class="stat-card">
+                        <div><span class="stat-value" style="color: var(--success);">{{ $readyDocuments }}</span><span class="stat-label">Ativos</span></div>
+                        <span class="stat-icon" style="background:#dcfce7;color:var(--success);"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+                    </section>
+                    <section class="stat-card">
+                        <div><span class="stat-value">{{ $indexedPercent }}%</span><span class="stat-label">Indexados</span></div>
+                        <span class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>
+                    </section>
+                </div>
+
+                <section class="card document-base-card" data-tab-panel="current-base" hidden>
+                    <form id="delete-selected-form" method="POST" action="/chat-drsp/index.php/documents/delete-selected" onsubmit="return confirm('Confirma a exclusão dos documentos selecionados? Esta ação remove os arquivos e a indexação da base.');">
+                        @csrf
+                        <div class="base-header">
+                            <div class="base-title">
+                                <h2>Base de conhecimento</h2>
+                                <p class="muted">Documentos atualmente disponíveis para consulta</p>
+                            </div>
+                            @if (! $documents->isEmpty())
+                                <div class="delete-panel">
+                                    <label for="delete-password">Senha para excluir selecionados</label>
+                                    <input id="delete-password" type="password" name="password" autocomplete="current-password">
+                                    <button class="delete" type="submit">Excluir selecionados</button>
+                                </div>
+                            @endif
+                        </div>
+
+                        @if ($documents->isEmpty())
+                            <div class="base-empty">Nenhum documento enviado ainda.</div>
+                        @else
+                            <div class="documents-list">
+                                @foreach ($documents as $document)
+                                    <div class="document-item" data-document-id="{{ $document->id }}">
+                                        <input type="checkbox" name="documents[]" value="{{ $document->id }}" aria-label="Selecionar {{ $document->original_name }}">
+                                        <span class="document-file-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/></svg></span>
+                                        <div>
+                                            <strong data-document-title>{{ $document->title }}</strong>
+                                            <div class="document-meta"><span data-document-name>{{ $document->original_name }}</span><span>·</span><span>{{ $formatBytes($document->size_bytes) }}</span><span>·</span><span>{{ $document->updated_at?->format('d/m/Y') }}</span></div>
+                                            <span class="document-error" data-document-error @if (! $document->error_message) hidden @endif>{{ $document->error_message }}</span>
+                                        </div>
+                                        <span data-document-status class="badge {{ $document->status }}">{{ $document->status === 'ready' ? 'Ativo' : $document->status }}</span>
+                                        <span data-document-chunks>{{ $document->chunks_count }} chunks</span>
+                                        <div class="actions">
+                                            <button class="secondary" type="submit" form="reprocess-document-{{ $document->id }}" data-reprocess-button @if ($document->status === 'indexing') hidden @endif>Processar</button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </form>
+
+                    @foreach ($documents as $document)
+                        <form id="reprocess-document-{{ $document->id }}" method="POST" action="/chat-drsp/index.php/documents/{{ $document->id }}/reprocess">
+                            @csrf
+                        </form>
+                    @endforeach
+                </section>
             </section>
         </main>
     </div>
@@ -855,7 +1086,7 @@
     <script>
         const allowedExtensions = @json($allowedExtensions);
         const maxUploadBytes = @json($maxUploadMb * 1024 * 1024);
-        const uploadForm = document.querySelector('form[action="{{ route('documents.store') }}"]');
+        const uploadForm = document.querySelector('form[action="/chat-drsp/index.php/documents"]');
         const fileInput = document.getElementById('documents');
         const dropzone = document.getElementById('document-dropzone');
         const fileList = document.getElementById('selected-files');
@@ -863,6 +1094,28 @@
         const uploadSubmit = document.getElementById('upload-submit');
         const manualText = document.getElementById('manual_text');
         const manualTextCount = document.getElementById('manual-text-count');
+        const tabButtons = document.querySelectorAll('[data-tab-target]');
+        const tabPanels = document.querySelectorAll('[data-tab-panel]');
+
+        function activateTab(tab) {
+            tabButtons.forEach((button) => {
+                const active = button.dataset.tabTarget === tab;
+                button.classList.toggle('active', active);
+                button.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+
+            tabPanels.forEach((panel) => {
+                panel.hidden = panel.dataset.tabPanel !== tab;
+            });
+        }
+
+        tabButtons.forEach((button) => {
+            button.addEventListener('click', () => activateTab(button.dataset.tabTarget));
+        });
+
+        if (window.location.hash === '#base-atual') {
+            activateTab('current-base');
+        }
 
         function formatBytes(bytes) {
             if (bytes < 1024 * 1024) {
@@ -960,7 +1213,7 @@
             uploadSubmit.textContent = 'Enviando...';
         });
 
-        const statusUrl = @json(route('documents.status'));
+        const statusUrl = '/chat-drsp/index.php/documents/status';
         let pollingTimer = null;
 
         function updateDocumentRow(item) {
@@ -975,9 +1228,9 @@
             const error = row.querySelector('[data-document-error]');
             const reprocessButton = row.querySelector('[data-reprocess-button]');
 
-            status.textContent = item.status;
+            status.textContent = item.status === 'ready' ? 'Ativo' : item.status;
             status.className = `badge ${item.status}`;
-            chunks.textContent = item.chunks_count;
+            chunks.textContent = `${item.chunks_count} chunks`;
             error.textContent = item.error_message || '';
             error.hidden = !item.error_message;
             reprocessButton.hidden = item.status === 'indexing';
