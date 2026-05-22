@@ -3,7 +3,7 @@
 $chunkSize = max(200, min((int) env('KNOWLEDGE_CHUNK_SIZE', 700), 3000));
 
 return [
-    'python_bin' => env('KNOWLEDGE_PYTHON_BIN', 'python3'),
+    'python_bin' => env('KNOWLEDGE_PYTHON_BIN', 'python'),
     'document_path' => env('KNOWLEDGE_DOCUMENT_PATH', 'knowledge/documents'),
     'chroma_path' => env('KNOWLEDGE_CHROMA_PATH', storage_path('app/private/knowledge/chromadb')),
     'tmp_path' => env('KNOWLEDGE_TMP_PATH', storage_path('app/private/knowledge/tmp')),
