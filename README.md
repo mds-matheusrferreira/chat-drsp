@@ -6,26 +6,28 @@ O projeto combina:
 
 - chat institucional em português;
 - modelo local via Ollama;
+- conversa com histórico recente;
 - base de conhecimento com documentos enviados pela equipe;
 - busca semântica em documentos indexados;
-- área administrativa protegida para upload, renovação e exclusão de documentos.
+- exibição separada das fontes recuperadas;
+- área administrativa protegida para upload, cadastro de textos, reprocessamento, renovação e exclusão de documentos.
 
 ## Objetivo
 
 A aplicação serve como um assistente interno para apoiar consultas de trabalho do DRSP. O chat responde com base no prompt institucional e, quando houver documentos indexados, utiliza os trechos encontrados na base interna como referência principal.
 
-O sistema foi pensado para trabalhar com documentos recorrentes da área, inclusive certificados, registros e materiais com validade, permitindo renovação de arquivos quando um documento novo substitui outro de mesmo nome e formato.
+O sistema foi pensado para trabalhar com documentos recorrentes da área, inclusive certificados, registros e materiais com validade, permitindo renovação quando um documento novo substitui outro de mesmo nome e formato.
 
 ## Tecnologias usadas
 
 ### Backend
 
-- PHP 8.4 no ambiente local atual
+- PHP 8.2 ou superior
 - Laravel 12
-- Laravel Queue com driver `database`
+- Laravel Queue com driver `sync` por padrão
 - SQLite por padrão no ambiente local
 - Laravel HTTP Client
-- Laravel Process
+- Symfony Process via serviço Python
 
 ### Frontend
 
@@ -38,7 +40,8 @@ O sistema foi pensado para trabalhar com documentos recorrentes da área, inclus
 ### IA e busca de documentos
 
 - Ollama para execução local do modelo de linguagem
-- Modelo padrão: `gemma3:4b`
+- Modelo padrão no `.env.example`: `qwen2.5:3b-instruct`
+- Modelo fallback no código: `gemma3:4b`
 - Python para ingestão, remoção e busca nos documentos
 - ChromaDB como base vetorial local
 - Sentence Transformers para embeddings
@@ -56,14 +59,15 @@ O sistema foi pensado para trabalhar com documentos recorrentes da área, inclus
 | Rota | Método | Função |
 | --- | --- | --- |
 | `/` | GET | Tela principal do chat |
+| `/chat/health` | GET | Verifica conexão com Ollama e disponibilidade do modelo |
 | `/chat` | POST | Envia pergunta sem streaming |
 | `/chat/stream` | POST | Envia pergunta com resposta em streaming |
 
 Arquivos principais:
 
 - `resources/views/chat.blade.php` — interface do chat
-- `app/Http/Controllers/ChatController.php` — controle do chat, montagem do prompt e chamada ao Ollama
-- `app/Services/Knowledge/KnowledgeSearchService.php` — busca trechos relevantes nos documentos indexados
+- `app/Http/Controllers/ChatController.php` — controle do chat, histórico, montagem do prompt e chamada ao Ollama
+- `app/Services/Knowledge/KnowledgeSearchService.php` — busca trechos relevantes nos documentos indexados e formata fontes
 
 ### Administração de documentos
 
@@ -72,17 +76,20 @@ Arquivos principais:
 | `/documents/login` | GET | Tela de login da área de documentos |
 | `/documents/login` | POST | Autenticação da área de documentos |
 | `/documents/logout` | POST | Logout da área de documentos |
-| `/documents` | GET | Lista e upload de documentos |
-| `/documents` | POST | Envia documento para indexação |
+| `/documents` | GET | Lista documentos, upload e cadastro manual de texto |
+| `/documents` | POST | Envia arquivos para indexação |
+| `/documents/text` | POST | Cadastra texto manual como documento `.txt` |
+| `/documents/status` | GET | Retorna status dos documentos em JSON |
+| `/documents/{document}/reprocess` | POST | Reprocessa um documento existente |
 | `/documents/delete-selected` | POST | Exclui documentos selecionados com senha |
 | `/documents/{document}` | DELETE | Remove documento individualmente |
 
 Arquivos principais:
 
-- `resources/views/documents/login.blade.php` — modal/tela de login da área restrita
-- `resources/views/documents/index.blade.php` — área de upload, listagem e exclusão de documentos
+- `resources/views/documents/login.blade.php` — login da área restrita
+- `resources/views/documents/index.blade.php` — área de upload, cadastro manual, listagem, reprocessamento e exclusão
 - `app/Http/Controllers/DocumentAuthController.php` — login/logout da área de documentos
-- `app/Http/Controllers/KnowledgeDocumentController.php` — upload, listagem e remoção de documentos
+- `app/Http/Controllers/KnowledgeDocumentController.php` — upload, texto manual, status, reprocessamento, listagem e remoção
 - `app/Http/Middleware/RequireDocumentAdmin.php` — protege a área de documentos
 - `app/Models/KnowledgeDocument.php` — modelo dos documentos cadastrados
 
@@ -116,59 +123,59 @@ app/Http/Controllers/ChatController.php
 Método:
 
 ```php
-private function prompt(string $message, string $knowledgeContext = ''): string
+private function prompt(string $message, string $knowledgeContext = '', array $history = []): string
 ```
 
-É nesse método que deve ser editado o comportamento do agente, por exemplo:
+É nesse método que deve ser editado o comportamento do agente.
 
-```text
-Você é um agente de IA para ajudar o DRSP dentro do Ministério do Desenvolvimento Social em relação ao SUAS, CEBAS e CNEAS.
-```
-
-Prompt atual:
+Prompt base atual:
 
 ```text
 Você é um assistente interno do DRSP — Departamento de Rede Socioassistencial Privada do SUAS.
 Responda sempre em português do Brasil.
 Use linguagem clara, objetiva e institucional.
-Use os documentos internos fornecidos como principal referência quando eles forem relevantes.
+Responda somente com base no contexto de documentos internos fornecido quando houver contexto.
 Quando a informação não estiver nos documentos fornecidos, diga que não encontrou informação suficiente na base interna.
-Não invente normas, prazos, números ou procedimentos.
+Não invente normas, prazos, números, procedimentos ou conceitos que não apareçam no contexto.
 Para temas sensíveis, recomende validação com a equipe responsável.
+Não liste fontes no texto da resposta; a aplicação exibirá as fontes recuperadas em bloco separado.
 ```
 
 O prompt final enviado ao modelo é composto por:
 
 1. instruções fixas do agente;
-2. contexto recuperado dos documentos internos, quando houver resultado relevante;
-3. pergunta do usuário.
+2. histórico recente da conversa, quando enviado pela interface;
+3. contexto recuperado dos documentos internos, quando houver resultado relevante;
+4. pergunta do usuário.
 
 ## Como o chat funciona
 
 1. O usuário envia uma pergunta pela tela `/`.
-2. `ChatController` recebe a mensagem.
-3. `KnowledgeSearchService` busca trechos relevantes na base vetorial.
-4. `ChatController::prompt()` monta o prompt final.
-5. A aplicação envia o prompt para o Ollama.
-6. O modelo responde em português.
-7. A resposta aparece na interface do chat.
+2. A interface envia a mensagem e parte do histórico recente.
+3. `ChatController` valida a mensagem e normaliza o histórico.
+4. `KnowledgeSearchService` busca trechos relevantes usando a pergunta atual junto das últimas mensagens do usuário.
+5. `ChatController::prompt()` monta o prompt final com instruções, histórico, contexto e pergunta.
+6. A aplicação envia o prompt para o Ollama.
+7. O modelo responde em português.
+8. A resposta aparece na interface do chat.
+9. As fontes recuperadas são exibidas em bloco separado pela aplicação.
 
 Configurações do Ollama:
 
 ```env
 OLLAMA_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=gemma3:4b
+OLLAMA_MODEL=qwen2.5:3b-instruct
 ```
 
 ## Como a base de documentos funciona
 
-### Upload
+### Upload de arquivos
 
 A equipe acessa `/documents`, faz login e envia arquivos para a base.
 
 Extensões aceitas por padrão:
 
-```php
+```text
 txt, csv, pdf, docx, xlsx, xls
 ```
 
@@ -184,22 +191,39 @@ Variável de limite da aplicação:
 KNOWLEDGE_MAX_UPLOAD_MB=50
 ```
 
+### Cadastro manual de texto
+
+A tela `/documents` também permite cadastrar um texto manualmente.
+
+Fluxo:
+
+1. a equipe informa um título;
+2. cola ou digita o conteúdo;
+3. o sistema salva o texto como documento `.txt`;
+4. o documento é indexado com o mesmo fluxo dos arquivos enviados.
+
+Validações principais:
+
+- título obrigatório, até 255 caracteres;
+- texto obrigatório, mínimo de 10 caracteres e máximo de 200000 caracteres.
+
 ### Indexação automática
 
-Arquivos grandes podem demorar para processar, mas a indexação acontece automaticamente durante o fluxo de upload ou reprocessamento. Não é necessário iniciar `queue:work` em outro terminal.
+A indexação acontece automaticamente durante o fluxo de upload, cadastro manual ou reprocessamento. Não é necessário iniciar `queue:work` em outro terminal quando `QUEUE_CONNECTION=sync`.
 
 Fluxo atual:
 
-1. arquivo é salvo;
+1. arquivo ou texto é salvo;
 2. registro é criado com status `indexing`;
 3. job `IndexKnowledgeDocument` é executado de forma síncrona;
-4. o Python de indexação processa o documento;
+4. o Python de indexação processa o conteúdo;
 5. documento muda para `ready` ou `failed`.
 
 Arquivos envolvidos:
 
 - `app/Jobs/IndexKnowledgeDocument.php`
 - `app/Services/Knowledge/KnowledgeIngestionService.php`
+- `app/Services/Knowledge/KnowledgePythonProcess.php`
 - `knowledge/ingest.py`
 
 ### Renovação de documentos
@@ -228,6 +252,17 @@ original_name + extension
 
 Essa regra evita duplicidade em uploads simultâneos.
 
+### Reprocessamento
+
+Na tela `/documents`, um documento pode ser reprocessado quando não estiver em status `indexing`.
+
+O reprocessamento:
+
+1. altera o status para `indexing`;
+2. zera a contagem de chunks;
+3. remove a mensagem de erro anterior;
+4. executa novamente `IndexKnowledgeDocument`.
+
 ### Exclusão manual de documentos
 
 Na área `/documents`, seção **Base atual**, é possível:
@@ -255,11 +290,21 @@ Principais arquivos:
 Configurações relacionadas:
 
 ```env
-KNOWLEDGE_PYTHON_BIN=python3
+KNOWLEDGE_PYTHON_BIN=python
 KNOWLEDGE_CHROMA_PATH=storage/app/private/knowledge/chromadb
+KNOWLEDGE_TMP_PATH=storage/app/private/knowledge/tmp
 KNOWLEDGE_DOCUMENT_PATH=knowledge/documents
-KNOWLEDGE_SEARCH_LIMIT=5
+KNOWLEDGE_SEARCH_LIMIT=8
+KNOWLEDGE_CHUNK_SIZE=700
+KNOWLEDGE_CHUNK_OVERLAP=120
 ```
+
+Observações:
+
+- `KNOWLEDGE_SEARCH_LIMIT` é limitado entre 1 e 20.
+- `KNOWLEDGE_CHUNK_SIZE` é limitado entre 200 e 3000.
+- `KNOWLEDGE_CHUNK_OVERLAP` não pode ser maior que o tamanho do chunk.
+- `KNOWLEDGE_TMP_PATH` define uma pasta temporária local do projeto para execução dos processos Python.
 
 ## Instalação local
 
@@ -302,7 +347,7 @@ php artisan migrate
 ### 7. Instalar dependências Python
 
 ```bash
-python3 -m pip install -r knowledge/requirements.txt
+python -m pip install -r knowledge/requirements.txt
 ```
 
 ### 8. Garantir que o Ollama está rodando
@@ -314,14 +359,14 @@ ollama serve
 Em outro terminal, confirme ou baixe o modelo configurado:
 
 ```bash
-ollama pull gemma3:4b
+ollama pull qwen2.5:3b-instruct
 ```
 
 ## Comandos para usar o projeto
 
-Para trabalhar com arquivos grandes, use dois terminais.
+### Servidor Laravel
 
-### Terminal 1 — servidor Laravel
+Para trabalhar com upload e indexação de arquivos maiores, suba o servidor com limites maiores de PHP:
 
 ```bash
 php -d upload_max_filesize=64M -d post_max_size=64M -d memory_limit=512M -d max_execution_time=300 -d max_input_time=300 artisan serve --host=0.0.0.0 --port=8000
@@ -339,11 +384,21 @@ Ou, em rede local, use o IP da máquina:
 http://IP_DA_MAQUINA:8000
 ```
 
-### Terminal 2 — Vite, se estiver usando assets em desenvolvimento
+### Vite, se estiver usando assets em desenvolvimento
 
 ```bash
 npm run dev
 ```
+
+### Script Composer de desenvolvimento
+
+O projeto também possui o script:
+
+```bash
+composer dev
+```
+
+Ele inicia servidor, fila, logs e Vite em paralelo. No fluxo atual de indexação automática com `QUEUE_CONNECTION=sync`, o servidor Laravel isolado já é suficiente para upload, cadastro manual e reprocessamento.
 
 ## Configurações importantes no `.env`
 
@@ -351,19 +406,23 @@ npm run dev
 APP_NAME=Laravel
 APP_ENV=local
 APP_DEBUG=true
-APP_URL=http://localhost
+APP_URL=http://localhost/chat-drsp
 
 DB_CONNECTION=sqlite
+SESSION_DRIVER=database
 QUEUE_CONNECTION=sync
 DB_QUEUE_RETRY_AFTER=2100
 
 OLLAMA_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=gemma3:4b
+OLLAMA_MODEL=qwen2.5:3b-instruct
 
-KNOWLEDGE_PYTHON_BIN=python3
+KNOWLEDGE_PYTHON_BIN=python
 KNOWLEDGE_CHROMA_PATH=storage/app/private/knowledge/chromadb
+KNOWLEDGE_TMP_PATH=storage/app/private/knowledge/tmp
 KNOWLEDGE_DOCUMENT_PATH=knowledge/documents
-KNOWLEDGE_SEARCH_LIMIT=5
+KNOWLEDGE_SEARCH_LIMIT=8
+KNOWLEDGE_CHUNK_SIZE=700
+KNOWLEDGE_CHUNK_OVERLAP=120
 KNOWLEDGE_MAX_UPLOAD_MB=50
 
 KNOWLEDGE_DOCUMENT_ADMIN_USERNAME=admin
@@ -372,7 +431,7 @@ KNOWLEDGE_DOCUMENT_ADMIN_PASSWORD=drsp
 
 ### Sobre a indexação
 
-A fila padrão é `sync`, então a indexação roda automaticamente no upload/reprocessamento. Se um documento ficar em `indexing`, verifique o erro salvo no registro do documento, o binário `KNOWLEDGE_PYTHON_BIN` e as dependências Python.
+A fila padrão é `sync`, então a indexação roda automaticamente no upload, cadastro manual e reprocessamento. Se um documento ficar em `indexing`, verifique o erro salvo no registro do documento, o binário `KNOWLEDGE_PYTHON_BIN`, a pasta `KNOWLEDGE_TMP_PATH` e as dependências Python.
 
 ## Limites para upload grande
 
@@ -404,14 +463,17 @@ confirme que:
 
 1. o servidor foi iniciado com o comando completo acima;
 2. `KNOWLEDGE_PYTHON_BIN` aponta para o Python com as dependências instaladas;
-3. as migrations foram executadas.
+3. `KNOWLEDGE_TMP_PATH` existe ou pode ser criado pela aplicação;
+4. as migrations foram executadas.
 
 ## Testes e validação
 
 O projeto possui testes automatizados em `tests/Feature` cobrindo regras importantes da aplicação.
 
-Testes adicionados:
+Testes principais:
 
+- `tests/Feature/ChatControllerTest.php`
+  - garante que o fallback sem streaming armazena fontes na sessão.
 - `tests/Feature/DocumentAuthTest.php`
   - garante que `/documents` exige login;
   - valida login com `admin` / `drsp`;
@@ -419,13 +481,17 @@ Testes adicionados:
 - `tests/Feature/KnowledgeDocumentTest.php`
   - valida criação de documento com status `indexing`;
   - garante disparo do job `IndexKnowledgeDocument`;
-  - testa validações HTTP de upload: arquivo obrigatório, extensão inválida, tamanho acima do limite e título longo;
+  - testa validações HTTP de upload;
   - testa renovação de documento com mesmo nome e formato;
   - testa exclusão selecionada com senha correta;
-  - testa validações HTTP da exclusão: seleção vazia, ID inexistente e senha ausente;
+  - testa validações HTTP da exclusão;
   - impede exclusão selecionada com senha incorreta.
 - `tests/Feature/KnowledgeDocumentDatabaseTest.php`
   - valida a regra única de banco para `original_name + extension`.
+- `tests/Feature/KnowledgeSearchServiceTest.php`
+  - valida ambiente temporário do processo Python;
+  - valida leitura de JSON mesmo quando o Python escreve saída extra;
+  - valida formatação de contexto e fontes a partir dos mesmos resultados.
 
 Rodar todos os testes:
 
@@ -437,12 +503,6 @@ Rodar testes pelo Composer:
 
 ```bash
 composer test
-```
-
-Rodar apenas os testes de documentos:
-
-```bash
-php artisan test tests/Feature/DocumentAuthTest.php tests/Feature/KnowledgeDocumentTest.php tests/Feature/KnowledgeDocumentDatabaseTest.php
 ```
 
 Verificar rotas de documentos:
@@ -471,8 +531,10 @@ npm run build
 - O login da administração fica em `resources/views/documents/login.blade.php`.
 - A busca nos documentos fica em `app/Services/Knowledge/KnowledgeSearchService.php`.
 - A indexação fica em `app/Services/Knowledge/KnowledgeIngestionService.php` e `knowledge/ingest.py`.
-- A indexação roda automaticamente no upload/reprocessamento com `QUEUE_CONNECTION=sync`.
+- O processo Python é centralizado em `app/Services/Knowledge/KnowledgePythonProcess.php`.
+- A indexação roda automaticamente com `QUEUE_CONNECTION=sync`.
 - Ao trocar um documento por outro de mesmo nome e formato, o sistema remove o antigo e mantém o novo.
+- O chat usa histórico recente para resolver referências de continuação, mas as respostas devem permanecer baseadas nos documentos recuperados quando houver contexto.
 - Não use o chat como fonte normativa final quando a base interna não trouxer informação suficiente.
 - Para temas sensíveis, o próprio prompt orienta validação com a equipe responsável.
 
@@ -492,6 +554,7 @@ app/
     KnowledgeDocument.php
   Services/Knowledge/
     KnowledgeIngestionService.php
+    KnowledgePythonProcess.php
     KnowledgeSearchService.php
 
 config/
@@ -513,6 +576,13 @@ resources/views/
   documents/
     login.blade.php
     index.blade.php
+
+tests/Feature/
+  ChatControllerTest.php
+  DocumentAuthTest.php
+  KnowledgeDocumentDatabaseTest.php
+  KnowledgeDocumentTest.php
+  KnowledgeSearchServiceTest.php
 ```
 
 ## Solução de problemas
@@ -530,8 +600,24 @@ Confirme no `.env`:
 
 ```env
 OLLAMA_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=gemma3:4b
+OLLAMA_MODEL=qwen2.5:3b-instruct
 ```
+
+Também é possível verificar a saúde do Ollama pela rota:
+
+```text
+/chat/health
+```
+
+### Modelo não encontrado no Ollama
+
+Baixe o modelo configurado no `.env`:
+
+```bash
+ollama pull qwen2.5:3b-instruct
+```
+
+Ou altere `OLLAMA_MODEL` para um modelo já disponível em `ollama list`.
 
 ### Documento fica parado em `indexing`
 
@@ -546,6 +632,7 @@ Confirme no `.env`:
 ```env
 KNOWLEDGE_PYTHON_BIN=python
 QUEUE_CONNECTION=sync
+KNOWLEDGE_TMP_PATH=storage/app/private/knowledge/tmp
 ```
 
 Verifique o erro salvo no registro do documento e os logs da aplicação.
@@ -578,4 +665,5 @@ Verifique se:
 
 1. o documento está com status `ready`;
 2. o ChromaDB está em `storage/app/private/knowledge/chromadb`;
-3. as dependências Python foram instaladas.
+3. `KNOWLEDGE_SEARCH_LIMIT` está configurado;
+4. as dependências Python foram instaladas.
