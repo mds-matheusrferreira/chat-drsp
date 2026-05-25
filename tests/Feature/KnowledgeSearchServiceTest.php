@@ -2,14 +2,18 @@
 
 namespace Tests\Feature;
 
+use App\Models\KnowledgeDocument;
 use App\Services\Knowledge\KnowledgePythonProcess;
 use App\Services\Knowledge\KnowledgeSearchService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class KnowledgeSearchServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_python_process_prepares_project_temp_directory(): void
     {
         config(['knowledge.tmp_path' => storage_path('framework/testing/knowledge-search-tmp')]);
@@ -29,6 +33,16 @@ class KnowledgeSearchServiceTest extends TestCase
 
     public function test_search_decodes_json_when_python_writes_extra_output(): void
     {
+        $document = KnowledgeDocument::create([
+            'title' => 'CEBAS',
+            'original_name' => 'cebas.txt',
+            'stored_path' => 'knowledge/documents/cebas.txt',
+            'mime_type' => 'text/plain',
+            'extension' => 'txt',
+            'size_bytes' => 1000,
+            'status' => 'ready',
+        ]);
+
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('failed')->once()->andReturnFalse();
         $process->shouldReceive('output')->once()->andReturn("Loading weights...\n".json_encode([
@@ -37,6 +51,7 @@ class KnowledgeSearchServiceTest extends TestCase
                     'content' => 'A Certificação das Entidades Beneficentes de Assistência Social.',
                     'title' => 'CEBAS',
                     'original_name' => 'cebas.txt',
+                    'metadata' => ['document_id' => (string) $document->id],
                 ],
             ],
         ], JSON_UNESCAPED_UNICODE));
@@ -47,6 +62,29 @@ class KnowledgeSearchServiceTest extends TestCase
         $results = (new KnowledgeSearchService($python))->search('O que é cebas?');
 
         $this->assertSame('CEBAS', $results[0]['title']);
+    }
+
+    public function test_search_discards_results_without_document_id(): void
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('failed')->once()->andReturnFalse();
+        $process->shouldReceive('output')->once()->andReturn(json_encode([
+            'results' => [
+                [
+                    'content' => 'Chunk legado sem vínculo com documento.',
+                    'title' => 'Legado',
+                    'original_name' => 'legado.txt',
+                    'metadata' => ['extension' => 'txt'],
+                ],
+            ],
+        ], JSON_UNESCAPED_UNICODE));
+
+        $python = Mockery::mock(KnowledgePythonProcess::class);
+        $python->shouldReceive('run')->once()->andReturn($process);
+
+        $results = (new KnowledgeSearchService($python))->search('legado');
+
+        $this->assertSame([], $results);
     }
 
     public function test_context_and_sources_are_formatted_from_same_results(): void

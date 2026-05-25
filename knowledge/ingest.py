@@ -3,14 +3,45 @@ import argparse
 import csv
 import json
 import os
+import sys
 from pathlib import Path
 
-try:
-    import chromadb
-    from chromadb.utils import embedding_functions
-except Exception:
-    chromadb = None
-    embedding_functions = None
+
+def ensure_chromadb_python():
+    # PATCH PARA XAMPP/APACHE: Garante as variáveis de ambiente necessárias
+    if os.name == 'nt':
+        default_user = r"C:\Users\avisala.cebas"
+        username = "avisala.cebas"
+        
+        if 'USERPROFILE' not in os.environ:
+            os.environ['USERPROFILE'] = default_user
+        if 'HOME' not in os.environ:
+            os.environ['HOME'] = default_user
+        if 'USERNAME' not in os.environ:
+            os.environ['USERNAME'] = username
+        if 'USER' not in os.environ:
+            os.environ['USER'] = username
+    try:
+        import chromadb
+        from chromadb.utils import embedding_functions
+
+        return chromadb, embedding_functions
+    except ModuleNotFoundError:
+        fallback = os.environ.get('KNOWLEDGE_PYTHON_FALLBACK', 'C:/Python314/python.exe')
+        current = Path(sys.executable).resolve()
+        fallback_path = Path(fallback)
+
+        if os.name == 'nt':
+            user_site = 'C:/Users/avisala.cebas/AppData/Roaming/Python/Python314/site-packages'
+            os.environ['PYTHONPATH'] = user_site + os.pathsep + os.environ.get('PYTHONPATH', '')
+
+        if os.name == 'nt' and fallback_path.exists() and current != fallback_path.resolve():
+            os.execv(str(fallback_path), [str(fallback_path), *sys.argv])
+
+        raise
+
+
+chromadb, embedding_functions = ensure_chromadb_python()
 
 try:
     import pandas as pd
@@ -33,7 +64,7 @@ except Exception:
     PdfReader = None
 
 
-SUPPORTED_EXTENSIONS = {'.txt', '.csv', '.pdf', '.docx', '.xlsx', '.xls'}
+SUPPORTED_EXTENSIONS = {'.txt', '.md', '.csv', '.pdf', '.docx', '.xlsx', '.xls'}
 
 
 def project_root() -> Path:
@@ -74,7 +105,7 @@ def extract_text(path: Path) -> str:
     if extension not in SUPPORTED_EXTENSIONS:
         raise ValueError(f'Tipo de arquivo não suportado: {extension}')
 
-    if extension == '.txt':
+    if extension in {'.txt', '.md'}:
         return path.read_text(encoding='utf-8', errors='ignore')
 
     if extension == '.csv':
@@ -114,15 +145,16 @@ def extract_text(path: Path) -> str:
 
     if extension in {'.xlsx', '.xls'}:
         if extension == '.xlsx' and load_workbook is not None:
-            workbook = load_workbook(filename=str(path), read_only=True, data_only=True)
-            lines = []
-            for sheet in workbook.worksheets:
-                lines.append(f'[Aba: {sheet.title}]')
-                for row in sheet.iter_rows(values_only=True):
-                    values = [str(value).strip() for value in row if value is not None and str(value).strip()]
-                    if values:
-                        lines.append(' | '.join(values))
-            return '\n'.join(lines)
+            # Uso de Context Manager (with) para liberar a memória do arquivo após leitura
+            with load_workbook(filename=str(path), read_only=True, data_only=True) as workbook:
+                lines = []
+                for sheet in workbook.worksheets:
+                    lines.append(f'[Aba: {sheet.title}]')
+                    for row in sheet.iter_rows(values_only=True):
+                        values = [str(value).strip() for value in row if value is not None and str(value).strip()]
+                        if values:
+                            lines.append(' | '.join(values))
+                return '\n'.join(lines)
 
         if pd is None:
             raise RuntimeError('Dependência pandas/openpyxl não instalada.')
@@ -158,6 +190,7 @@ def validate_chunking(chunk_size: int, overlap: int) -> None:
 
 
 def chunk_text(text: str, chunk_size: int = 700, overlap: int = 120) -> list[str]:
+    # Normalização de quebras de linha redundantes
     normalized = '\n'.join(line.strip() for line in text.splitlines())
     normalized = '\n'.join(line for line in normalized.splitlines() if line)
 
@@ -166,18 +199,24 @@ def chunk_text(text: str, chunk_size: int = 700, overlap: int = 120) -> list[str
 
     chunks = []
     start = 0
+    text_len = len(normalized)
 
-    while start < len(normalized):
-        end = min(start + chunk_size, len(normalized))
+    while start < text_len:
+        end = min(start + chunk_size, text_len)
         chunk = normalized[start:end].strip()
 
         if chunk:
             chunks.append(chunk)
 
-        if end == len(normalized):
+        if end == text_len:
             break
 
-        start = max(0, end - overlap)
+        # Evita loops infinitos e calcula o deslocamento correto com base no overlap
+        step = chunk_size - overlap
+        if step <= 0:
+            step = 1  # Fallback de segurança mecânica
+            
+        start += step
 
     return chunks
 
@@ -218,6 +257,7 @@ def main():
     ]
 
     store = collection()
+    # Limpa vetores antigos desse ID antes de inserir os novos blocos modificados
     store.delete(where={'document_id': str(args.document_id)})
     store.add(ids=ids, documents=chunks, metadatas=metadatas)
 

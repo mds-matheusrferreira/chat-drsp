@@ -90,7 +90,7 @@ class KnowledgeIngestionService
         $payload = $this->jsonPayload($output);
 
         if ($result->failed() || ! is_array($payload) || ($payload['status'] ?? null) !== 'deleted') {
-            throw new \RuntimeException($payload['error'] ?? $output ?: 'Falha ao remover documento da base vetorial.');
+            report(new \RuntimeException($payload['error'] ?? $output ?: 'Falha ao remover documento da base vetorial.'));
         }
 
         Storage::delete($document->stored_path);

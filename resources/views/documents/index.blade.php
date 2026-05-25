@@ -1065,7 +1065,7 @@
                                         <span data-document-status class="badge {{ $document->status }}">{{ $document->status === 'ready' ? 'Ativo' : $document->status }}</span>
                                         <span data-document-chunks>{{ $document->chunks_count }} chunks</span>
                                         <div class="actions">
-                                            <button class="secondary" type="submit" form="reprocess-document-{{ $document->id }}" data-reprocess-button @if ($document->status === 'indexing') hidden @endif>Processar</button>
+                                            <button class="secondary" type="submit" form="reprocess-document-{{ $document->id }}" data-reprocess-button @if ($document->status === 'indexing') disabled @endif>{{ $document->status === 'indexing' ? 'Processando...' : 'Processar' }}</button>
                                         </div>
                                     </div>
                                 @endforeach
@@ -1233,7 +1233,8 @@
             chunks.textContent = `${item.chunks_count} chunks`;
             error.textContent = item.error_message || '';
             error.hidden = !item.error_message;
-            reprocessButton.hidden = item.status === 'indexing';
+            reprocessButton.disabled = item.status === 'indexing';
+            reprocessButton.textContent = item.status === 'indexing' ? 'Processando...' : 'Processar';
         }
 
         async function refreshDocumentStatus() {
@@ -1261,6 +1262,21 @@
             } catch (error) {
             }
         }
+
+        document.querySelectorAll('form[id^="reprocess-document-"]').forEach((form) => {
+            form.addEventListener('submit', () => {
+                const button = document.querySelector(`[form="${form.id}"][data-reprocess-button]`);
+
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Processando...';
+                }
+
+                if (!pollingTimer) {
+                    pollingTimer = setInterval(refreshDocumentStatus, 4000);
+                }
+            });
+        });
 
         if (document.querySelector('.badge.indexing')) {
             pollingTimer = setInterval(refreshDocumentStatus, 4000);

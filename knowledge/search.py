@@ -3,11 +3,46 @@ import argparse
 import json
 import os
 import re
+import sys
 import unicodedata
 from pathlib import Path
 
-import chromadb
-from chromadb.utils import embedding_functions
+
+def ensure_chromadb_python():
+    # PATCH PARA XAMPP/APACHE: Injeta variáveis de sistema necessárias para o ChromaDB/ONNX
+    if os.name == 'nt':
+        default_user = r"C:\Users\avisala.cebas"
+        username = "avisala.cebas"
+        if 'USERPROFILE' not in os.environ:
+            os.environ['USERPROFILE'] = default_user
+        if 'HOME' not in os.environ:
+            os.environ['HOME'] = default_user
+        if 'USERNAME' not in os.environ:
+            os.environ['USERNAME'] = username
+        if 'USER' not in os.environ:
+            os.environ['USER'] = username
+
+    try:
+        import chromadb
+        from chromadb.utils import embedding_functions
+
+        return chromadb, embedding_functions
+    except ModuleNotFoundError:
+        fallback = os.environ.get('KNOWLEDGE_PYTHON_FALLBACK', 'C:/Python314/python.exe')
+        current = Path(sys.executable).resolve()
+        fallback_path = Path(fallback)
+
+        if os.name == 'nt':
+            user_site = 'C:/Users/avisala.cebas/AppData/Roaming/Python/Python314/site-packages'
+            os.environ['PYTHONPATH'] = user_site + os.pathsep + os.environ.get('PYTHONPATH', '')
+
+        if os.name == 'nt' and fallback_path.exists() and current != fallback_path.resolve():
+            os.execv(str(fallback_path), [str(fallback_path), *sys.argv])
+
+        raise
+
+
+chromadb, embedding_functions = ensure_chromadb_python()
 
 
 def project_root() -> Path:
@@ -60,8 +95,42 @@ def normalize_text(value: str) -> str:
 
 def query_terms(query: str) -> list[str]:
     terms = re.findall(r'[\w]+', normalize_text(query), flags=re.UNICODE)
+    # Mudado para >= 2 para não ignorar siglas essenciais do SUAS (Ex: PC, PF, AC)
+    return [term for term in terms if len(term) >= 2]
 
-    return [term for term in terms if len(term) >= 3]
+
+def required_documents_boost(query: str, document: str) -> int:
+    normalized_query = normalize_text(query)
+    content = normalize_text(document)
+
+    asks_documents = 'document' in normalized_query and any(
+        term in normalized_query
+        for term in ['necess', 'precis', 'obrigatori', 'exigid', 'requerimento']
+    )
+
+    if not asks_documents:
+        return 0
+
+    score = 0
+    strong_phrases = [
+        'acompanhado dos seguintes documentos',
+        'acompanhado de documentos',
+        'documentos obrigatorios',
+        'documentos previstos',
+        'requerimento de concessao ou de renovacao da certificacao',
+    ]
+
+    for phrase in strong_phrases:
+        if phrase in content:
+            score += 260
+
+    if 'art. 5' in content and 'requerimento' in content and 'documentos' in content:
+        score += 360
+
+    if 'i - declaracao' in content and 'representante legal' in content:
+        score += 180
+
+    return score
 
 
 def lexical_score(query: str, document: str, metadata: dict) -> int:
@@ -73,7 +142,7 @@ def lexical_score(query: str, document: str, metadata: dict) -> int:
     content = normalize_text(document)
     searchable_name = f'{title} {original_name}'
     name_terms = set(re.findall(r'[\w]+', searchable_name, flags=re.UNICODE))
-    score = 0
+    score = required_documents_boost(query, document)
 
     if normalized_query and normalized_query in {title, original_stem}:
         score += 1000
@@ -98,7 +167,9 @@ def lexical_score(query: str, document: str, metadata: dict) -> int:
 
 
 def lexical_results(store, query: str, limit: int) -> list[dict]:
-    response = store.get(limit=1000, include=['documents', 'metadatas'])
+    # Reduzido o limite preventivo para 400 itens para não travar a CPU do Apache.
+    # O ideal a longo prazo é usar ferramentas como Whoosh ou BM25 nativo.
+    response = store.get(limit=400, include=['documents', 'metadatas'])
     ids = response.get('ids', [])
     documents = response.get('documents', [])
     metadatas = response.get('metadatas', [])

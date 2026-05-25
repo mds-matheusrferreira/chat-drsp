@@ -210,36 +210,73 @@
         }
 
         .recent {
-            padding: 0 20px;
+            padding: 0 14px 18px;
         }
 
         .recent-title {
-            margin: 12px 0 12px;
+            margin: 12px 4px 12px;
             color: var(--text-secondary);
             font-size: 12px;
             font-weight: 850;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
         }
 
         .recent-list {
             display: grid;
-            gap: 10px;
+            gap: 6px;
             margin: 0;
             padding: 0;
             list-style: none;
         }
 
+        .recent-empty {
+            margin: 0 4px;
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
         .recent-list button {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: center;
             width: 100%;
             border: 0;
+            border-radius: 12px;
             background: transparent;
             color: var(--text-secondary);
             cursor: pointer;
-            padding: 2px 0;
-            font-size: 14px;
-            font-weight: 700;
+            padding: 11px 8px;
+            font-size: 13px;
+            font-weight: 650;
             text-align: left;
+            transition: background 0.18s ease, color 0.18s ease;
+        }
+
+        .recent-list button:hover,
+        .recent-list button.active {
+            background: rgba(34, 197, 94, 0.14);
+            color: var(--text-primary);
+        }
+
+        .recent-list .icon {
+            width: 15px;
+            height: 15px;
+        }
+
+        .recent-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .recent-time {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
         }
 
         .sidebar-footer {
@@ -998,8 +1035,14 @@
             </div>
 
             <nav class="nav" aria-label="Navegação principal">
-                <button type="button" class="active" id="new-chat-button"><span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span> Nova Conversa</button>
+                <button type="button" class="active" id="new-chat-button"><span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span> Nova Conversa</button>
             </nav>
+
+            <section class="recent" aria-labelledby="recent-title">
+                <h2 id="recent-title" class="recent-title">Conversas recentes</h2>
+                <p id="recent-empty" class="recent-empty">Nenhuma conversa ainda.</p>
+                <ul id="recent-list" class="recent-list"></ul>
+            </section>
 
             <div class="sidebar-footer nav">
                 <button type="button" id="settings-button"><span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span> Configurações</button>
@@ -1222,7 +1265,14 @@
         const statusText = document.getElementById('ollama-status-text');
         const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
         const defaultButtonText = submitButton.textContent;
+        const storageKey = 'chat-drsp-conversations';
+        const maxStoredConversations = 12;
+        let conversations = loadConversations();
+        let activeConversationId = conversations[0]?.id || createConversation().id;
         const chatHistory = [];
+        chatHistory.push(...activeConversation().messages);
+        const recentList = document.getElementById('recent-list');
+        const recentEmpty = document.getElementById('recent-empty');
         const charCount = document.getElementById('char-count');
         const emptyState = document.getElementById('empty-state');
         const clearChatButton = document.getElementById('clear-chat-button');
@@ -1271,6 +1321,160 @@
             mainTitle.textContent = 'Configurações';
             newChatButton.classList.remove('active');
             settingsButton.classList.add('active');
+        }
+
+        function syncActiveHistory() {
+            const current = activeConversation();
+            chatHistory.length = 0;
+            chatHistory.push(...current.messages);
+        }
+
+        function loadConversations() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                if (!Array.isArray(parsed)) {
+                    return [];
+                }
+
+                return parsed
+                    .filter((item) => item && typeof item.id === 'string' && Array.isArray(item.messages))
+                    .map((item) => ({
+                        id: item.id,
+                        title: typeof item.title === 'string' && item.title.trim() ? item.title.trim() : 'Nova conversa',
+                        updatedAt: Number(item.updatedAt) || Date.now(),
+                        messages: item.messages
+                            .filter((message) => message && ['user', 'assistant'].includes(message.role) && typeof message.content === 'string')
+                            .slice(-12),
+                    }))
+                    .sort((a, b) => b.updatedAt - a.updatedAt)
+                    .slice(0, maxStoredConversations);
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function saveConversations() {
+            conversations = conversations
+                .filter((conversationItem) => conversationItem.messages.length > 0 || conversationItem.id === activeConversationId)
+                .sort((a, b) => b.updatedAt - a.updatedAt)
+                .slice(0, maxStoredConversations);
+
+            localStorage.setItem(storageKey, JSON.stringify(conversations));
+            renderRecentConversations();
+        }
+
+        function createConversation() {
+            const conversationItem = {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                title: 'Nova conversa',
+                updatedAt: Date.now(),
+                messages: [],
+            };
+
+            conversations.unshift(conversationItem);
+            return conversationItem;
+        }
+
+        function activeConversation() {
+            let current = conversations.find((item) => item.id === activeConversationId);
+
+            if (!current) {
+                current = createConversation();
+                activeConversationId = current.id;
+            }
+
+            return current;
+        }
+
+        function conversationTitle(conversationItem) {
+            const firstUserMessage = conversationItem.messages.find((message) => message.role === 'user');
+            const title = firstUserMessage?.content || conversationItem.title || 'Nova conversa';
+            return title.length > 28 ? `${title.slice(0, 28)}...` : title;
+        }
+
+        function relativeConversationTime(timestamp) {
+            const elapsed = Date.now() - timestamp;
+            const day = 24 * 60 * 60 * 1000;
+
+            if (elapsed < 60 * 1000) {
+                return 'agora';
+            }
+
+            if (elapsed < day) {
+                return 'hoje';
+            }
+
+            if (elapsed < day * 2) {
+                return 'ontem';
+            }
+
+            return `${Math.floor(elapsed / day)} dias`;
+        }
+
+        function renderRecentConversations() {
+            recentList.innerHTML = '';
+            const storedConversations = conversations.filter((conversationItem) => conversationItem.messages.length > 0);
+            recentEmpty.hidden = storedConversations.length > 0;
+
+            storedConversations.forEach((conversationItem) => {
+                const item = document.createElement('li');
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.classList.toggle('active', conversationItem.id === activeConversationId);
+                button.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>';
+
+                const name = document.createElement('span');
+                name.className = 'recent-name';
+                name.textContent = conversationTitle(conversationItem);
+
+                const time = document.createElement('span');
+                time.className = 'recent-time';
+                time.textContent = relativeConversationTime(conversationItem.updatedAt);
+
+                button.append(name, time);
+                button.addEventListener('click', () => selectConversation(conversationItem.id));
+                item.append(button);
+                recentList.append(item);
+            });
+        }
+
+        function renderConversationMessages() {
+            document.querySelectorAll('.response-stack > .message-row:not(#stream-answer)').forEach((message) => message.remove());
+            renderSources(null);
+            streamError.hidden = true;
+            streamError.textContent = '';
+            answerOutput.textContent = '';
+            streamAnswer.hidden = true;
+
+            chatHistory.forEach((message) => appendMessage(message.role, message.content));
+            emptyState.hidden = chatHistory.length > 0;
+            scrollConversationToBottom();
+        }
+
+        function selectConversation(conversationId) {
+            activeConversationId = conversationId;
+            syncActiveHistory();
+            showChat();
+            renderConversationMessages();
+            renderRecentConversations();
+            textarea.focus();
+        }
+
+        function startNewConversation() {
+            const current = activeConversation();
+
+            if (current.messages.length === 0) {
+                current.updatedAt = Date.now();
+            } else {
+                activeConversationId = createConversation().id;
+            }
+
+            syncActiveHistory();
+            saveConversations();
+            renderConversationMessages();
+            textarea.value = '';
+            updateCharacterCount();
+            textarea.focus();
         }
 
         function updateCharacterCount() {
@@ -1325,17 +1529,35 @@
         }
 
         function addHistory(role, content) {
-            chatHistory.push({ role, content: content.trim() });
+            const trimmedContent = content.trim();
+
+            if (!trimmedContent) {
+                return;
+            }
+
+            chatHistory.push({ role, content: trimmedContent });
 
             if (chatHistory.length > 12) {
                 chatHistory.splice(0, chatHistory.length - 12);
             }
+
+            const current = activeConversation();
+            current.messages = [...chatHistory];
+            current.updatedAt = Date.now();
+
+            if (role === 'user') {
+                current.title = trimmedContent;
+            }
+
+            saveConversations();
         }
 
         function clearConversation() {
             textarea.value = '';
             chatHistory.length = 0;
-            document.querySelectorAll('.response-stack > .message-row').forEach((message) => message.remove());
+            activeConversation().messages = [];
+            saveConversations();
+            document.querySelectorAll('.response-stack > .message-row:not(#stream-answer)').forEach((message) => message.remove());
             answerOutput.textContent = '';
             streamAnswer.hidden = true;
             renderSources(null);
@@ -1370,13 +1592,21 @@
 
         checkOllamaStatus();
         setInterval(checkOllamaStatus, 30000);
+        renderRecentConversations();
+        renderConversationMessages();
         updateCharacterCount();
 
         textarea.addEventListener('input', updateCharacterCount);
+        textarea.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                form.requestSubmit();
+            }
+        });
         clearChatButton.addEventListener('click', clearConversation);
         newChatButton.addEventListener('click', () => {
             showChat();
-            clearConversation();
+            startNewConversation();
         });
         settingsButton.addEventListener('click', showSettings);
         backChatButton.addEventListener('click', showChat);

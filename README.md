@@ -176,7 +176,7 @@ A equipe acessa `/documents`, faz login e envia arquivos para a base.
 Extensões aceitas por padrão:
 
 ```text
-txt, csv, pdf, docx, xlsx, xls
+txt, md, csv, pdf, docx, xlsx, xls
 ```
 
 Configuração:

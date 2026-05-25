@@ -154,7 +154,7 @@ class KnowledgeDocumentTest extends TestCase
         $this->assertStringContainsString('Texto novo', Storage::get($new->stored_path));
     }
 
-    public function test_delete_keeps_database_and_storage_when_chroma_delete_fails(): void
+    public function test_delete_removes_database_and_storage_when_chroma_delete_fails(): void
     {
         Storage::fake('local');
         Storage::put('knowledge/documents/certificado.pdf', 'conteudo');
@@ -175,15 +175,10 @@ class KnowledgeDocumentTest extends TestCase
             'status' => 'ready',
         ]);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Chroma indisponível');
+        app(KnowledgeIngestionService::class)->delete($document);
 
-        try {
-            app(KnowledgeIngestionService::class)->delete($document);
-        } finally {
-            $this->assertDatabaseHas('knowledge_documents', ['id' => $document->id]);
-            Storage::assertExists('knowledge/documents/certificado.pdf');
-        }
+        $this->assertDatabaseMissing('knowledge_documents', ['id' => $document->id]);
+        Storage::assertMissing('knowledge/documents/certificado.pdf');
     }
 
     public function test_delete_removes_database_and_storage_after_chroma_delete_succeeds(): void

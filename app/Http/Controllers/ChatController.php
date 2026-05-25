@@ -202,13 +202,64 @@ class ChatController extends Controller
 
     private function searchQuery(string $message, array $history): string
     {
-        $recentUserMessages = collect($history)
-            ->where('role', 'user')
-            ->pluck('content')
-            ->slice(-3)
-            ->implode("\n");
+        $message = trim($message);
+        $parts = [$message];
 
-        return trim($recentUserMessages."\n".$message);
+        if ($this->asksForRequiredDocuments($message)) {
+            $parts[] = 'requerimento documentos obrigatórios acompanhado dos seguintes documentos';
+        }
+
+        if ($history !== []) {
+            $subjects = $this->conversationSubjects($history);
+
+            if ($subjects !== '') {
+                $parts[] = $subjects;
+            }
+        }
+
+        return trim(implode(' ', array_unique($parts)));
+    }
+
+    private function asksForRequiredDocuments(string $message): bool
+    {
+        $message = str($message)->ascii()->lower()->toString();
+
+        return str_contains($message, 'document')
+            && (str_contains($message, 'necess')
+                || str_contains($message, 'precis')
+                || str_contains($message, 'obrigatori')
+                || str_contains($message, 'exigid'));
+    }
+
+    private function conversationSubjects(array $history): string
+    {
+        $text = collect($history)
+            ->slice(-6)
+            ->map(fn (array $item) => $item['content'])
+            ->implode(' ');
+
+        $normalized = mb_strtolower($text);
+        $subjects = [];
+
+        $keywords = [
+            'CEBAS' => ['cebas', 'certificação de entidades beneficentes', 'certificacao de entidades beneficentes'],
+            'certificação' => ['certificação', 'certificacao', 'certificado'],
+            'assistência social' => ['assistência social', 'assistencia social', 'socioassistencial'],
+            'DRSP' => ['drsp', 'departamento da rede socioassistencial privada'],
+            'SUAS' => ['suas', 'sistema único de assistência social', 'sistema unico de assistencia social'],
+            'CNEAS' => ['cneas'],
+        ];
+
+        foreach ($keywords as $subject => $terms) {
+            foreach ($terms as $term) {
+                if (str_contains($normalized, $term)) {
+                    $subjects[] = $subject;
+                    break;
+                }
+            }
+        }
+
+        return implode(' ', array_unique($subjects));
     }
 
     private function conversationContext(array $history): string

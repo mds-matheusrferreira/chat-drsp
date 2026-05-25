@@ -2,10 +2,32 @@
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
-import chromadb
-from chromadb.utils import embedding_functions
+
+def ensure_chromadb_python():
+    try:
+        import chromadb
+        from chromadb.utils import embedding_functions
+
+        return chromadb, embedding_functions
+    except ModuleNotFoundError:
+        fallback = os.environ.get('KNOWLEDGE_PYTHON_FALLBACK', 'C:/Python314/python.exe')
+        current = Path(sys.executable).resolve()
+        fallback_path = Path(fallback)
+
+        if os.name == 'nt':
+            user_site = 'C:/Users/avisala.cebas/AppData/Roaming/Python/Python314/site-packages'
+            os.environ['PYTHONPATH'] = user_site + os.pathsep + os.environ.get('PYTHONPATH', '')
+
+        if os.name == 'nt' and fallback_path.exists() and current != fallback_path.resolve():
+            os.execv(str(fallback_path), [str(fallback_path), *sys.argv])
+
+        raise
+
+
+chromadb, embedding_functions = ensure_chromadb_python()
 
 
 def project_root() -> Path:

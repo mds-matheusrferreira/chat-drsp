@@ -11,7 +11,7 @@ return [
     'chunk_size' => $chunkSize,
     'chunk_overlap' => min(max(0, min((int) env('KNOWLEDGE_CHUNK_OVERLAP', 120), 1000)), $chunkSize - 1),
     'max_upload_mb' => (int) env('KNOWLEDGE_MAX_UPLOAD_MB', 50),
-    'allowed_extensions' => ['txt', 'csv', 'pdf', 'docx', 'xlsx', 'xls'],
+    'allowed_extensions' => ['txt', 'md', 'csv', 'pdf', 'docx', 'xlsx', 'xls'],
     'document_admin_username' => env('KNOWLEDGE_DOCUMENT_ADMIN_USERNAME', 'admin'),
     'document_admin_password' => env('KNOWLEDGE_DOCUMENT_ADMIN_PASSWORD', 'drsp'),
 ];
